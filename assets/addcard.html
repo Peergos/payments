@@ -1,5 +1,16 @@
+<!DOCTYPE html>
 <html>
+  <head>
+    <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+	<link type="text/css" href="a.css" rel="stylesheet">
+	<script type="text/javascript" src="https://js.stripe.com/v1/"></script>
+	<script type="text/javascript" src="a.js"></script>
+  </head>
   <body>
-    <h2> Please add a payment card </h2>
+    <form action="addCard" method="post" target="_parent">
+      <payment data-key="pk&#x5f;0664cKxtpzh9waTUen65TTQtCUgp0"></payment>
+      <input class="submit" type="submit" value="Make payment">
+    </form>
   </body>
 </html>

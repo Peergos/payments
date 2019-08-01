@@ -18,6 +18,7 @@ import java.util.logging.*;
 public class Server {
     private static final Logger LOG = Logger.getLogger("NULL_FORMAT");
     public static final String UI_URL = "/";
+    public static final String CARD_URL = "/addCard";
 
     public static final int HANDLER_THREADS = 50;
     public static final int CONNECTION_BACKLOG = 100;
@@ -157,6 +158,7 @@ public class Server {
                 tlsServer.createContext(path, new HSTSHandler(handlerFunc));
         };
 
+        addHandler.accept(CARD_URL, new CardHandler());
         addHandler.accept(UI_URL, handler);
 
         localhostServer.setExecutor(Executors.newFixedThreadPool(HANDLER_THREADS));
