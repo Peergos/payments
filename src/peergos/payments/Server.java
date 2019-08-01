@@ -64,6 +64,12 @@ public class Server {
         }
     }
 
+    private final String stripe_secret_key;
+
+    public Server(String stripe_secret_key) {
+        this.stripe_secret_key = stripe_secret_key;
+    }
+
     public void initAndStart(InetSocketAddress local,
                              Optional<TlsProperties> tlsProps,
                              Optional<Path> webroot,
@@ -158,7 +164,7 @@ public class Server {
                 tlsServer.createContext(path, new HSTSHandler(handlerFunc));
         };
 
-        addHandler.accept(CARD_URL, new CardHandler());
+        addHandler.accept(CARD_URL, new CardHandler(stripe_secret_key));
         addHandler.accept(UI_URL, handler);
 
         localhostServer.setExecutor(Executors.newFixedThreadPool(HANDLER_THREADS));
@@ -184,7 +190,9 @@ public class Server {
 
     public static void main(String[] args) throws IOException {
         Args a = Args.parse(args);
-        Server daemon = new Server();
+
+        String stripe_secret_key = a.getArg("stripe-secret");
+        Server daemon = new Server(stripe_secret_key);
 
         String domain = a.getArg("domain");
         int webPort = a.getInt("port");
