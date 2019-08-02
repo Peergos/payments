@@ -66,6 +66,31 @@ public class PaymentStateTests {
         Assert.assertTrue("One payment", payments.size() == 1);
     }
 
+    @Test
+    public void chargeOnExpiry() {
+        Natural bytesPerCent = new Natural(GIGABYTE / 100);
+        Natural minQuota = new Natural(5 * GIGABYTE);
+        AcceptAll bank = new AcceptAll();
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank);
+        String username = "bob";
+        CardToken card = new CardToken(cardtoken);
+        Natural desiredQuota = new Natural(5 * GIGABYTE);
+        global.ensureUser(username);
+        global.setDesiredQuota(username, desiredQuota);
+        LocalDateTime now = LocalDateTime.now();
+        global.addCard(username, card, now);
+        long quota = global.getCurrentQuota(username);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+
+        for (int i=0; i < 28; i++)
+            global.processAll(now.plusDays(i));
+
+        global.processAll(now.plusMonths(1).plusDays(1));
+
+        List<PaymentResult> payments = bank.getPayments();
+        Assert.assertTrue("Two payments", payments.size() == 2);
+    }
+
     private static final String example_payment_response = "{\n" +
             "  \"id\": \"ch_1F2lzpKU7V27QSznGqy1VLhY\",\n" +
             "  \"object\": \"charge\",\n" +
