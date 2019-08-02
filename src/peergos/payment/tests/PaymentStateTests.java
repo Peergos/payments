@@ -13,9 +13,17 @@ public class PaymentStateTests {
     private static final String cardtoken = "tok_1F2lzWKU7V27QSzndZCle14H";
 
     private static class AcceptAll implements Bank {
+        private final List<PaymentResult> payments = new ArrayList<>();
+
+        public List<PaymentResult> getPayments() {
+            return new ArrayList<>(payments);
+        }
+
         @Override
         public PaymentResult takePayment(CardToken cardToken, Natural cents, String currency, LocalDateTime now) {
-            return new PaymentResult(cents, currency, now, Optional.empty());
+            PaymentResult res = new PaymentResult(cents, currency, now, Optional.empty());
+            payments.add(res);
+            return res;
         }
     }
 
@@ -33,6 +41,29 @@ public class PaymentStateTests {
         global.addCard(username, card, now);
         long quota = global.getCurrentQuota(username);
         Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+    }
+
+    @Test
+    public void idempotent() {
+        Natural bytesPerCent = new Natural(GIGABYTE / 100);
+        Natural minQuota = new Natural(5 * GIGABYTE);
+        AcceptAll bank = new AcceptAll();
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank);
+        String username = "bob";
+        CardToken card = new CardToken(cardtoken);
+        Natural desiredQuota = new Natural(5 * GIGABYTE);
+        global.ensureUser(username);
+        global.setDesiredQuota(username, desiredQuota);
+        LocalDateTime now = LocalDateTime.now();
+        global.addCard(username, card, now);
+        long quota = global.getCurrentQuota(username);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+
+        for (int i=0; i < 10; i++)
+            global.processAll(now);
+
+        List<PaymentResult> payments = bank.getPayments();
+        Assert.assertTrue("One payment", payments.size() == 1);
     }
 
     private static final String example_payment_response = "{\n" +

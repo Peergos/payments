@@ -21,4 +21,12 @@ public class PaymentResult {
     public boolean isSuccessful() {
         return ! failureError.isPresent();
     }
+
+    @Override
+    public String toString() {
+        Natural hundred = Natural.of(100);
+        return amount.divide(hundred) + "." + String.format("%02d", amount.mod(hundred).val)
+                + " " + currency
+                + failureError.map(e -> " " + e).orElse("");
+    }
 }

@@ -28,8 +28,16 @@ public class Natural {
         return new Natural(val / other.val);
     }
 
+    public Natural mod(Natural other) {
+        return new Natural(val % other.val);
+    }
+
     public Natural max(Natural other) {
         return val > other.val ? this : other;
+    }
+
+    public static Natural of(long val) {
+        return new Natural(val);
     }
 
     @Override

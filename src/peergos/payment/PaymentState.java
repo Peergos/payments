@@ -66,6 +66,7 @@ public class PaymentState implements Converter {
                     if (paymentResult.isSuccessful()) {
                         currentBalanceCents = toCharge.minus(remaining);
                         currentQuotaBytes = desiredQuotaBytes;
+                        expiry = now.plusMonths(1);
                     }
                 }
             }
