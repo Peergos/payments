@@ -1,8 +1,8 @@
-package peergos.payments.http;
+package peergos.payment.http;
 
 import com.sun.net.httpserver.*;
-import peergos.payments.*;
-import peergos.payments.util.*;
+import peergos.payment.*;
+import peergos.payment.util.*;
 
 import java.time.*;
 import java.util.*;

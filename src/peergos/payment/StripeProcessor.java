@@ -1,7 +1,6 @@
-package peergos.payments;
+package peergos.payment;
 
-import peergos.payments.util.*;
-import sun.misc.*;
+import peergos.payment.util.*;
 
 import java.io.*;
 import java.net.*;
@@ -43,7 +42,7 @@ public class StripeProcessor implements Bank {
         try
         {
             conn = (HttpURLConnection) new URL(url).openConnection();
-            String auth = new BASE64Encoder().encode((stripeSecretKey + ":").getBytes());
+            String auth = Base64.getEncoder().encodeToString((stripeSecretKey + ":").getBytes());
             conn.setRequestProperty("Authorization", "Basic " + auth);
             conn.setDoInput(true);
             conn.setDoOutput(true);

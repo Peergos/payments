@@ -1,4 +1,4 @@
-package peergos.payments;
+package peergos.payment;
 
 public class CardToken {
     public final String token;

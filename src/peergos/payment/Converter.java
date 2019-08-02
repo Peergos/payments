@@ -1,6 +1,6 @@
-package peergos.payments;
+package peergos.payment;
 
-import peergos.payments.util.*;
+import peergos.payment.util.*;
 
 public interface Converter {
 

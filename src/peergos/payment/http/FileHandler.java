@@ -1,4 +1,4 @@
-package peergos.payments.http;
+package peergos.payment.http;
 
 import java.io.*;
 import java.nio.file.*;

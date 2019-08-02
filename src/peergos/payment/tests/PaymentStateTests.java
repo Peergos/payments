@@ -1,8 +1,8 @@
-package peergos.payments.tests;
+package peergos.payment.tests;
 
 import org.junit.*;
-import peergos.payments.*;
-import peergos.payments.util.*;
+import peergos.payment.*;
+import peergos.payment.util.*;
 
 import java.time.*;
 import java.util.*;

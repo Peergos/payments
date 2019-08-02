@@ -2,6 +2,13 @@
   <description>
     Building Peergos payment server
   </description>
+
+  <!-- Need to run "sudo apt-get install ant-optional" -->
+  <taskdef resource="net/sf/antcontrib/antlib.xml">
+    <classpath>
+      <fileset dir="ant.lib"/>
+    </classpath>
+  </taskdef>
   
   <property name="src" location="src"/>
   <property name="test.sources" location="src"/>
@@ -65,8 +72,8 @@
     </touch>
     <jar jarfile="${dist}/PaymentServer.jar" basedir="${build}" includes="peergos/**"></jar>
     <mkdir dir="META-INF"/>
-    <echo file="META-INF/MANIFEST.MF">Main-Class: peergos.payments.Server
-Class-Path: ${manifest_cp}</echo>
+    <echo file="META-INF/MANIFEST.MF">Main-Class: peergos.payment.Server
+        Class-Path: ${manifest_cp}</echo>
     <touch millis="0">
       <fileset dir="META-INF"/>
     </touch>

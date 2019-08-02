@@ -1,4 +1,4 @@
-package peergos.payments.http;
+package peergos.payment.http;
 
 import com.sun.net.httpserver.*;
 
