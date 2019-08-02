@@ -110,11 +110,12 @@ public class PaymentState implements Converter {
                 new Natural(desiredQuota), LocalDateTime.MIN, "gbp", null, new HashMap<>()));
     }
 
-    public synchronized void addCard(String username, CardToken card) {
+    public synchronized void addCard(String username, CardToken card, LocalDateTime now) {
         UserState userState = userStates.get(username);
         if (userState == null)
             throw new IllegalStateException("User not present when adding card: " + username);
         userState.addCard(card);
+        userState.update(now, this, bank);
     }
 
     public synchronized void processAll(LocalDateTime now) {

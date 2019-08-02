@@ -25,8 +25,8 @@ public class PaymentStateTests {
         CardToken card = new CardToken(cardtoken);
         long desiredQuota = 5 * GIGABYTE;
         global.addUser(username, desiredQuota);
-        global.addCard(username, card);
-        global.processAll(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        global.addCard(username, card, now);
         long quota = global.getCurrentQuota(username);
         Assert.assertTrue("Correct quota", quota == desiredQuota);
     }

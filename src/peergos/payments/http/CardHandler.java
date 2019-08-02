@@ -3,6 +3,7 @@ package peergos.payments.http;
 import com.sun.net.httpserver.*;
 import peergos.payments.*;
 
+import java.time.*;
 import java.util.*;
 import java.util.logging.*;
 
@@ -11,10 +12,10 @@ public class CardHandler implements HttpHandler {
     private static final Logger LOG = Logger.getLogger("NULL_FORMAT");
     private static final int MAX_PAYLOAD_SIZE = 4096;
 
-    private final String stripe_secret_key;
+    private final PaymentState state;
 
-    public CardHandler(String stripe_secret_key) {
-        this.stripe_secret_key = stripe_secret_key;
+    public CardHandler(PaymentState state) {
+        this.state = state;
     }
 
     @Override
@@ -32,9 +33,9 @@ public class CardHandler implements HttpHandler {
             }
             System.out.println(params);
 
-            // TODO store in database
+            state.addCard(params.get("username"), new CardToken(params.get("stripe_token")), LocalDateTime.now());
             // TODO remove this test payment
-            Payment.takePayment(params.get("stripe_token"), stripe_secret_key);
+
 
             byte[] resp = "<html><body><h1>Card accepted</h1></body></html>".getBytes();
             exchange.sendResponseHeaders(200, resp.length);

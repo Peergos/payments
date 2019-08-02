@@ -64,10 +64,10 @@ public class Server {
         }
     }
 
-    private final String stripe_secret_key;
+    private final PaymentState state;
 
-    public Server(String stripe_secret_key) {
-        this.stripe_secret_key = stripe_secret_key;
+    public Server(PaymentState state) {
+        this.state = state;
     }
 
     public void initAndStart(InetSocketAddress local,
@@ -164,7 +164,7 @@ public class Server {
                 tlsServer.createContext(path, new HSTSHandler(handlerFunc));
         };
 
-        addHandler.accept(CARD_URL, new CardHandler(stripe_secret_key));
+        addHandler.accept(CARD_URL, new CardHandler(state));
         addHandler.accept(UI_URL, handler);
 
         localhostServer.setExecutor(Executors.newFixedThreadPool(HANDLER_THREADS));
@@ -192,7 +192,10 @@ public class Server {
         Args a = Args.parse(args);
 
         String stripe_secret_key = a.getArg("stripe-secret");
-        Server daemon = new Server(stripe_secret_key);
+        Bank bank = new StripeProcessor(stripe_secret_key);
+        Natural bytesPerCent = new Natural(1024 * 1024 * 1024L / 100);
+        PaymentState state = new PaymentState(new HashMap<>(), bytesPerCent, bank);
+        Server daemon = new Server(state);
 
         String domain = a.getArg("domain");
         int webPort = a.getInt("port");

@@ -7,13 +7,16 @@ import java.net.*;
 
 public class Payment {
 
-    public static void takePayment(String stripeToken, String stripeSecretKey) {
+    public static String takePayment(String stripeToken, String stripeSecretKey) {
         try {
             String payload = "amount=500&currency=gbp&source=" + stripeToken;
             byte[] result = post("https://api.stripe.com/v1/charges", stripeSecretKey, payload);
-            System.out.println("Took payment: " + new String(result));
+            String res = new String(result);
+            System.out.println("Took payment: " + res);
+            return res;
         } catch (Exception e) {
             e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 
