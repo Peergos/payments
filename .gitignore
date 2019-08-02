@@ -3,6 +3,7 @@ log/*
 dist/*
 out/*
 log/*
+test.reports/
 *.hprof
 *hs_err_pid*
 *~
