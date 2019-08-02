@@ -1,4 +1,4 @@
-package peergos.payments;
+package peergos.payments.util;
 
 import java.util.*;
 

@@ -2,6 +2,7 @@ package peergos.payments.tests;
 
 import org.junit.*;
 import peergos.payments.*;
+import peergos.payments.util.*;
 
 import java.time.*;
 import java.util.*;

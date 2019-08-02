@@ -3,6 +3,7 @@ package peergos.payments;
 import com.sun.net.httpserver.*;
 import peergos.payments.http.*;
 import peergos.payments.http.FileHandler;
+import peergos.payments.util.*;
 
 import javax.net.ssl.*;
 import java.io.*;

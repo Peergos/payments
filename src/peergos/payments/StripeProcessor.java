@@ -1,5 +1,6 @@
 package peergos.payments;
 
+import peergos.payments.util.*;
 import sun.misc.*;
 
 import java.io.*;
