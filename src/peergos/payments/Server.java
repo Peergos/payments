@@ -188,13 +188,16 @@ public class Server {
         throw new IllegalStateException("TLS keystore file doesn't exist: "+filename);
     }
 
+    private static final long GIGABYTE = 1024*1024*1024L;
+
     public static void main(String[] args) throws IOException {
         Args a = Args.parse(args);
 
         String stripe_secret_key = a.getArg("stripe-secret");
         Bank bank = new StripeProcessor(stripe_secret_key);
         Natural bytesPerCent = new Natural(1024 * 1024 * 1024L / 100);
-        PaymentState state = new PaymentState(new HashMap<>(), bytesPerCent, bank);
+        Natural minQuota = new Natural(a.getLong("min-quota", 5 * GIGABYTE));
+        PaymentState state = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank);
         Server daemon = new Server(state);
 
         String domain = a.getArg("domain");

@@ -20,15 +20,18 @@ public class PaymentStateTests {
 
     @Test
     public void paymentStateEvolution() {
-        PaymentState global = new PaymentState(new HashMap<>(), new Natural(GIGABYTE / 100), new AcceptAll());
+        Natural bytesPerCent = new Natural(GIGABYTE / 100);
+        Natural minQuota = new Natural(5 * GIGABYTE);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, new AcceptAll());
         String username = "bob";
         CardToken card = new CardToken(cardtoken);
-        long desiredQuota = 5 * GIGABYTE;
-        global.addUser(username, desiredQuota);
+        Natural desiredQuota = new Natural(5 * GIGABYTE);
+        global.ensureUser(username);
+        global.setDesiredQuota(username, desiredQuota);
         LocalDateTime now = LocalDateTime.now();
         global.addCard(username, card, now);
         long quota = global.getCurrentQuota(username);
-        Assert.assertTrue("Correct quota", quota == desiredQuota);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val);
     }
 
     private static final String example_payment_response = "{\n" +

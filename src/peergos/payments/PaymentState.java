@@ -69,12 +69,12 @@ public class PaymentState implements Converter {
             }
         }
 
-        public synchronized void setMinPayment(long cents) {
-            this.minPaymentCents = new Natural(cents);
+        public synchronized void setMinPayment(Natural cents) {
+            this.minPaymentCents = cents;
         }
 
-        public synchronized void setDesiredQuota(long bytes) {
-            this.desiredQuotaBytes = new Natural(bytes);
+        public synchronized void setDesiredQuota(Natural bytes) {
+            this.desiredQuotaBytes = bytes;
         }
 
         public synchronized void addCard(CardToken card) {
@@ -89,11 +89,16 @@ public class PaymentState implements Converter {
 
     private final Map<String, UserState> userStates;
     private final Natural bytesPerCent;
+    private final Natural minQuota;
     private final Bank bank;
 
-    public PaymentState(Map<String, UserState> userStates, Natural bytesPerCent, Bank bank) {
+    public PaymentState(Map<String, UserState> userStates,
+                        Natural bytesPerCent,
+                        Natural minQuota,
+                        Bank bank) {
         this.userStates = userStates;
         this.bytesPerCent = bytesPerCent;
+        this.minQuota = minQuota;
         this.bank = bank;
     }
 
@@ -105,15 +110,24 @@ public class PaymentState implements Converter {
         return bytes.divide(bytesPerCent);
     }
 
-    public synchronized void addUser(String username, long desiredQuota) {
+    public synchronized UserState ensureUser(String username) {
         userStates.putIfAbsent(username, new UserState(Natural.ZERO, Natural.ZERO, Natural.ZERO, Natural.ZERO,
-                new Natural(desiredQuota), LocalDateTime.MIN, "gbp", null, new HashMap<>()));
+                Natural.ZERO, LocalDateTime.MIN, "gbp", null, new HashMap<>()));
+        return userStates.get(username);
+    }
+
+    public synchronized void setDesiredQuota(String username, Natural quota) {
+        UserState userState = ensureUser(username);
+        userState.setDesiredQuota(quota.max(minQuota));
     }
 
     public synchronized void addCard(String username, CardToken card, LocalDateTime now) {
         UserState userState = userStates.get(username);
-        if (userState == null)
-            throw new IllegalStateException("User not present when adding card: " + username);
+        if (userState == null) {
+            // we assume the call is already authorized by the storage node
+            userState = ensureUser(username);
+            userState.setDesiredQuota(minQuota);
+        }
         userState.addCard(card);
         userState.update(now, this, bank);
     }

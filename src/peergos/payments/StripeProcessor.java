@@ -13,8 +13,10 @@ public class StripeProcessor implements Bank {
 
     @Override
     public PaymentResult takePayment(CardToken cardToken, Natural cents, String currency, LocalDateTime now) {
-        String res = Payment.takePayment(cardToken.token, stripeSecretToken);
-        // TODO parse res
-        return new PaymentResult(cents, currency, now, Optional.empty());
+        Map<String, Object> res = (Map) JSONParser.parse(Payment.takePayment(cardToken.token, stripeSecretToken));
+        boolean success = "succeeded".equals(res.get("status"));
+        Optional<String> errMessage = Optional.ofNullable(res.get("failure_message")).map(x -> (String) x);
+        // TODO parse more fields from res
+        return new PaymentResult(cents, currency, now, errMessage);
     }
 }
