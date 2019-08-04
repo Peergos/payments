@@ -14,14 +14,27 @@ public class PaymentStateTests {
 
     private static class AcceptAll implements Bank {
         private final List<PaymentResult> payments = new ArrayList<>();
+        private int failuresLeft = 0;
+        private String errorMessage = "Failed payment";
 
         public List<PaymentResult> getPayments() {
             return new ArrayList<>(payments);
         }
 
+        public synchronized void failNext(String error) {
+            failuresLeft = 1;
+            errorMessage = error;
+        }
+
         @Override
-        public PaymentResult takePayment(CardToken cardToken, Natural cents, String currency, LocalDateTime now) {
-            PaymentResult res = new PaymentResult(cents, currency, now, Optional.empty());
+        public synchronized PaymentResult takePayment(CardToken cardToken, Natural cents, String currency, LocalDateTime now) {
+            PaymentResult res;
+            if (failuresLeft > 0) {
+                res = new PaymentResult(cents, currency, now, Optional.of(errorMessage));
+                failuresLeft--;
+            } else {
+                res = new PaymentResult(cents, currency, now, Optional.empty());
+            }
             payments.add(res);
             return res;
         }
@@ -89,6 +102,38 @@ public class PaymentStateTests {
 
         List<PaymentResult> payments = bank.getPayments();
         Assert.assertTrue("Two payments", payments.size() == 2);
+    }
+
+    @Test
+    public void failAndRecover() {
+        Natural bytesPerCent = new Natural(GIGABYTE / 100);
+        Natural minQuota = new Natural(5 * GIGABYTE);
+        AcceptAll bank = new AcceptAll();
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank);
+        String username = "bob";
+        CardToken card = new CardToken(cardtoken);
+        Natural desiredQuota = new Natural(5 * GIGABYTE);
+        global.ensureUser(username);
+        global.setDesiredQuota(username, desiredQuota);
+        LocalDateTime now = LocalDateTime.now();
+        global.addCard(username, card, now);
+        long quota = global.getCurrentQuota(username);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+
+        bank.failNext("Card Rejected!");
+        global.processAll(now.plusMonths(1).plusDays(1));
+        {
+            List<PaymentResult> payments = bank.getPayments();
+            Assert.assertTrue("Two payments", payments.size() == 2);
+            Assert.assertTrue("Last failed", ! payments.get(1).isSuccessful());
+        }
+
+        global.processAll(now.plusMonths(1).plusDays(2));
+        {
+            List<PaymentResult> payments = bank.getPayments();
+            Assert.assertTrue("Three payments", payments.size() == 3);
+            Assert.assertTrue("Last succeeded", payments.get(2).isSuccessful());
+        }
     }
 
     private static final String example_payment_response = "{\n" +
