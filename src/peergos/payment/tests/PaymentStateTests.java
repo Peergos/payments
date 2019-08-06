@@ -80,6 +80,29 @@ public class PaymentStateTests {
     }
 
     @Test
+    public void freeLevel() {
+        Natural bytesPerCent = new Natural(GIGABYTE / 100);
+        Natural minQuota = new Natural(5 * GIGABYTE);
+        AcceptAll bank = new AcceptAll();
+        HashMap<String, PaymentState.UserState> userStates = new HashMap<>();
+        PaymentState global = new PaymentState(userStates, bytesPerCent, minQuota, bank);
+        String username = "bob";
+        CardToken card = new CardToken(cardtoken);
+        Natural desiredQuota = new Natural(5 * GIGABYTE);
+        Natural freeSpace = new Natural(5 * GIGABYTE);
+        global.ensureUser(username, freeSpace);
+        global.setDesiredQuota(username, desiredQuota);
+        LocalDateTime now = LocalDateTime.now();
+        global.addCard(username, card, now);
+        long quota = global.getCurrentQuota(username);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.plus(freeSpace).val);
+
+        List<PaymentResult> payments = bank.getPayments();
+        Assert.assertTrue("One payment", payments.size() == 1);
+        Assert.assertTrue("One payment", payments.get(0).amount.val == 500);
+    }
+
+    @Test
     public void chargeOnExpiry() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);

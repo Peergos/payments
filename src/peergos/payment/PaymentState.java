@@ -7,7 +7,7 @@ import java.util.*;
 
 public class PaymentState implements Converter {
 
-    static class UserState {
+    public static class UserState {
         private Natural freeBytes;
         private Natural minPaymentCents;
         private Natural currentBalanceCents;
@@ -115,6 +115,12 @@ public class PaymentState implements Converter {
 
     public synchronized UserState ensureUser(String username) {
         userStates.putIfAbsent(username, new UserState(Natural.ZERO, Natural.ZERO, Natural.ZERO, Natural.ZERO,
+                Natural.ZERO, LocalDateTime.MIN, "gbp", null, new HashMap<>()));
+        return userStates.get(username);
+    }
+
+    public synchronized UserState ensureUser(String username, Natural freeSpace) {
+        userStates.putIfAbsent(username, new UserState(freeSpace, Natural.ZERO, Natural.ZERO, Natural.ZERO,
                 Natural.ZERO, LocalDateTime.MIN, "gbp", null, new HashMap<>()));
         return userStates.get(username);
     }
