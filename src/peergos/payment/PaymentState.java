@@ -42,7 +42,7 @@ public class PaymentState implements Converter {
          *  Take any payments and expire any old quota
          */
         public synchronized void update(LocalDateTime now, Converter converter, Bank bank) {
-            if (now.isAfter(expiry))
+            if (now.isAfter(expiry.minusSeconds(1)))
                 currentQuotaBytes = Natural.ZERO;
             if (currentQuotaBytes.val < desiredQuotaBytes.val) {
                 Natural toPay = converter.convertBytesToCents(desiredQuotaBytes.minus(currentQuotaBytes));
@@ -113,20 +113,20 @@ public class PaymentState implements Converter {
         return bytes.divide(bytesPerCent);
     }
 
-    public synchronized UserState ensureUser(String username) {
+    public synchronized UserState ensureUser(String username, LocalDateTime now) {
         userStates.putIfAbsent(username, new UserState(Natural.ZERO, Natural.ZERO, Natural.ZERO, Natural.ZERO,
-                Natural.ZERO, LocalDateTime.MIN, "gbp", null, new HashMap<>()));
+                Natural.ZERO, now, "gbp", null, new HashMap<>()));
         return userStates.get(username);
     }
 
-    public synchronized UserState ensureUser(String username, Natural freeSpace) {
+    public synchronized UserState ensureUser(String username, Natural freeSpace, LocalDateTime now) {
         userStates.putIfAbsent(username, new UserState(freeSpace, Natural.ZERO, Natural.ZERO, Natural.ZERO,
-                Natural.ZERO, LocalDateTime.MIN, "gbp", null, new HashMap<>()));
+                Natural.ZERO, now, "gbp", null, new HashMap<>()));
         return userStates.get(username);
     }
 
     public synchronized void setDesiredQuota(String username, Natural quota, LocalDateTime now) {
-        UserState userState = ensureUser(username);
+        UserState userState = ensureUser(username, now);
         userState.setDesiredQuota(quota.max(minQuota));
         userState.update(now, this, bank);
     }
@@ -135,7 +135,7 @@ public class PaymentState implements Converter {
         UserState userState = userStates.get(username);
         if (userState == null) {
             // we assume the call is already authorized by the storage node
-            userState = ensureUser(username);
+            userState = ensureUser(username, now);
             userState.setDesiredQuota(minQuota);
         }
         userState.addCard(card);
