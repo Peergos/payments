@@ -125,9 +125,10 @@ public class PaymentState implements Converter {
         return userStates.get(username);
     }
 
-    public synchronized void setDesiredQuota(String username, Natural quota) {
+    public synchronized void setDesiredQuota(String username, Natural quota, LocalDateTime now) {
         UserState userState = ensureUser(username);
         userState.setDesiredQuota(quota.max(minQuota));
+        userState.update(now, this, bank);
     }
 
     public synchronized void addCard(String username, CardToken card, LocalDateTime now) {

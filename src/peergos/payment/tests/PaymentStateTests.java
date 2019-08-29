@@ -49,8 +49,8 @@ public class PaymentStateTests {
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         global.ensureUser(username);
-        global.setDesiredQuota(username, desiredQuota);
         LocalDateTime now = LocalDateTime.now();
+        global.setDesiredQuota(username, desiredQuota, now);
         global.addCard(username, card, now);
         long quota = global.getCurrentQuota(username);
         Assert.assertTrue("Correct quota", quota == desiredQuota.val);
@@ -66,8 +66,8 @@ public class PaymentStateTests {
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         global.ensureUser(username);
-        global.setDesiredQuota(username, desiredQuota);
         LocalDateTime now = LocalDateTime.now();
+        global.setDesiredQuota(username, desiredQuota, now);
         global.addCard(username, card, now);
         long quota = global.getCurrentQuota(username);
         Assert.assertTrue("Correct quota", quota == desiredQuota.val);
@@ -91,8 +91,8 @@ public class PaymentStateTests {
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         Natural freeSpace = new Natural(5 * GIGABYTE);
         global.ensureUser(username, freeSpace);
-        global.setDesiredQuota(username, desiredQuota);
         LocalDateTime now = LocalDateTime.now();
+        global.setDesiredQuota(username, desiredQuota, now);
         global.addCard(username, card, now);
         long quota = global.getCurrentQuota(username);
         Assert.assertTrue("Correct quota", quota == desiredQuota.plus(freeSpace).val);
@@ -112,8 +112,8 @@ public class PaymentStateTests {
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         global.ensureUser(username);
-        global.setDesiredQuota(username, desiredQuota);
         LocalDateTime now = LocalDateTime.now();
+        global.setDesiredQuota(username, desiredQuota, now);
         global.addCard(username, card, now);
         long quota = global.getCurrentQuota(username);
         Assert.assertTrue("Correct quota", quota == desiredQuota.val);
@@ -137,8 +137,8 @@ public class PaymentStateTests {
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         global.ensureUser(username);
-        global.setDesiredQuota(username, desiredQuota);
         LocalDateTime now = LocalDateTime.now();
+        global.setDesiredQuota(username, desiredQuota, now);
         global.addCard(username, card, now);
         long quota = global.getCurrentQuota(username);
         Assert.assertTrue("Correct quota", quota == desiredQuota.val);
@@ -157,6 +157,29 @@ public class PaymentStateTests {
             Assert.assertTrue("Three payments", payments.size() == 3);
             Assert.assertTrue("Last succeeded", payments.get(2).isSuccessful());
         }
+    }
+
+    @Test
+    public void increaseQuotaAndTakePayment() {
+        Natural bytesPerCent = new Natural(GIGABYTE / 100);
+        Natural minQuota = new Natural(5 * GIGABYTE);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, new AcceptAll());
+        String username = "bob";
+        CardToken card = new CardToken(cardtoken);
+        Natural desiredQuota = new Natural(5 * GIGABYTE);
+
+        global.ensureUser(username);
+        LocalDateTime now = LocalDateTime.now();
+        global.setDesiredQuota(username, desiredQuota, now);
+        global.addCard(username, card, now);
+        long quota = global.getCurrentQuota(username);
+
+
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+        Natural increasedQuota = new Natural(10 * GIGABYTE);
+        global.setDesiredQuota(username, increasedQuota, now);
+        long newQuota = global.getCurrentQuota(username);
+        Assert.assertTrue("Quota increased", newQuota == increasedQuota.val);
     }
 
     private static final String example_payment_response = "{\n" +
