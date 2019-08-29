@@ -163,47 +163,54 @@ public class PaymentStateTests {
     public void increaseQuotaAndTakePayment() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, new AcceptAll());
+        AcceptAll bank = new AcceptAll();
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank);
         String username = "bob";
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(5 * GIGABYTE);
-
         LocalDateTime now = LocalDateTime.now();
         global.ensureUser(username, now);
         global.setDesiredQuota(username, desiredQuota, now);
         global.addCard(username, card, now);
         long quota = global.getCurrentQuota(username);
-
-
         Assert.assertTrue("Correct quota", quota == desiredQuota.val);
         Natural increasedQuota = new Natural(10 * GIGABYTE);
         global.setDesiredQuota(username, increasedQuota, now);
         long newQuota = global.getCurrentQuota(username);
         Assert.assertTrue("Quota increased", newQuota == increasedQuota.val);
+        List<PaymentResult> payments = bank.getPayments();
+        Assert.assertTrue("Correct number of payments ", payments.size() == 2);
+        Assert.assertTrue("First payment is for 5GiB", payments.get(0).amount.equals(global.convertBytesToCents(desiredQuota)));
+        Assert.assertTrue("Second payment is for 5GiB",
+                payments.get(1).amount.equals(global.convertBytesToCents(increasedQuota.minus(desiredQuota))));
     }
 
     @Test
     public void decreaseQuotaAndTakePayment() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(1 * GIGABYTE);
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, new AcceptAll());
+
+        AcceptAll bank = new AcceptAll();
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank);
         String username = "bob";
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(10 * GIGABYTE);
-
         LocalDateTime now = LocalDateTime.now();
         global.ensureUser(username, now);
         global.setDesiredQuota(username, desiredQuota, now);
         global.addCard(username, card, now);
         long quota = global.getCurrentQuota(username);
-
-
         Assert.assertTrue("Correct quota", quota == desiredQuota.val);
         Natural decreasedQuota = new Natural(7 * GIGABYTE);
         global.setDesiredQuota(username, decreasedQuota, now);
         global.processAll(now.plusMonths(1));
         long newQuota = global.getCurrentQuota(username);
         Assert.assertTrue("Quota decreased", newQuota == decreasedQuota.val);
+        List<PaymentResult> payments = bank.getPayments();
+        Assert.assertTrue("Correct number of payments ", payments.size() == 2);
+        Assert.assertTrue("First payment is for 10GiB", payments.get(0).amount.equals(global.convertBytesToCents(desiredQuota)));
+        Assert.assertTrue("Second payment is for 7GiB", payments.get(1).amount.equals(global.convertBytesToCents(decreasedQuota)));
+
     }
 
     private static final String example_payment_response = "{\n" +

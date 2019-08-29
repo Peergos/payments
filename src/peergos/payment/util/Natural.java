@@ -1,5 +1,7 @@
 package peergos.payment.util;
 
+import java.util.Objects;
+
 public class Natural {
 
     public static final Natural ZERO = new Natural(0);
@@ -38,6 +40,19 @@ public class Natural {
 
     public static Natural of(long val) {
         return new Natural(val);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Natural natural = (Natural) o;
+        return val == natural.val;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(val);
     }
 
     @Override

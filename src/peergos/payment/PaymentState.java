@@ -58,7 +58,7 @@ public class PaymentState implements Converter {
                 }
                 if (currentQuotaBytes.val < desiredQuotaBytes.val) {
                     // take a payment
-                    Natural remaining = converter.convertBytesToCents(desiredQuotaBytes.minus(currentBalanceCents));
+                    Natural remaining = converter.convertBytesToCents(desiredQuotaBytes.minus(currentQuotaBytes));
                     Natural toCharge = minPaymentCents.max(remaining);
                     PaymentResult paymentResult = bank.takePayment(currentCard, toCharge, currency, now);
                     payments.putIfAbsent(currentCard, new ArrayList<>());
