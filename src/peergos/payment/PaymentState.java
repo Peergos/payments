@@ -42,8 +42,9 @@ public class PaymentState implements Converter {
          *  Take any payments and expire any old quota
          */
         public synchronized void update(LocalDateTime now, Converter converter, Bank bank) {
+            System.out.printf("********** Update payment state: " + currentQuotaBytes + " => ");
             if (now.isAfter(expiry.minusSeconds(1)))
-                currentQuotaBytes = Natural.ZERO;
+                currentQuotaBytes = freeBytes;
             if (currentQuotaBytes.val < desiredQuotaBytes.val) {
                 Natural toPay = converter.convertBytesToCents(desiredQuotaBytes.minus(currentQuotaBytes));
                 // use any existing balance first
@@ -53,23 +54,26 @@ public class PaymentState implements Converter {
                         currentQuotaBytes = desiredQuotaBytes;
                     } else {
                         currentQuotaBytes = currentQuotaBytes.plus(converter.convertCentsToBytes(currentBalanceCents));
-                        currentBalanceCents = Natural.ZERO;
+                        currentBalanceCents = freeBytes;
                     }
                 }
                 if (currentQuotaBytes.val < desiredQuotaBytes.val) {
                     // take a payment
                     Natural remaining = converter.convertBytesToCents(desiredQuotaBytes.minus(currentQuotaBytes));
                     Natural toCharge = minPaymentCents.max(remaining);
-                    PaymentResult paymentResult = bank.takePayment(currentCard, toCharge, currency, now);
-                    payments.putIfAbsent(currentCard, new ArrayList<>());
-                    payments.get(currentCard).add(paymentResult);
-                    if (paymentResult.isSuccessful()) {
-                        currentBalanceCents = toCharge.minus(remaining);
-                        currentQuotaBytes = desiredQuotaBytes;
-                        expiry = now.plusMonths(1);
+                    if (currentCard != null) {
+                        PaymentResult paymentResult = bank.takePayment(currentCard, toCharge, currency, now);
+                        payments.putIfAbsent(currentCard, new ArrayList<>());
+                        payments.get(currentCard).add(paymentResult);
+                        if (paymentResult.isSuccessful()) {
+                            currentBalanceCents = toCharge.minus(remaining);
+                            currentQuotaBytes = desiredQuotaBytes;
+                            expiry = now.plusMonths(1);
+                        }
                     }
                 }
             }
+            System.out.println("final quota: " + currentQuotaBytes);
         }
 
         public synchronized void setMinPayment(Natural cents) {
@@ -94,15 +98,37 @@ public class PaymentState implements Converter {
     private final Natural bytesPerCent;
     private final Natural minQuota;
     private final Bank bank;
+    private final Natural defaultFreeQuota;
+    private final int maxUsers;
 
     public PaymentState(Map<String, UserState> userStates,
                         Natural bytesPerCent,
                         Natural minQuota,
-                        Bank bank) {
+                        Bank bank,
+                        Natural defaultFreeQuota,
+                        int maxUsers) {
         this.userStates = userStates;
         this.bytesPerCent = bytesPerCent;
         this.minQuota = minQuota;
         this.bank = bank;
+        this.defaultFreeQuota = defaultFreeQuota;
+        this.maxUsers = maxUsers;
+    }
+
+    public boolean acceptingSignups() {
+        return userCount() < maxUsers;
+    }
+
+    public List<String> getAllUsernames() {
+        return new ArrayList<>(userStates.keySet());
+    }
+
+    public long userCount() {
+        return userStates.size();
+    }
+
+    public boolean hasUser(String username) {
+        return userStates.containsKey(username);
     }
 
     public Natural convertCentsToBytes(Natural cents) {
@@ -114,7 +140,7 @@ public class PaymentState implements Converter {
     }
 
     public synchronized UserState ensureUser(String username, LocalDateTime now) {
-        userStates.putIfAbsent(username, new UserState(Natural.ZERO, Natural.ZERO, Natural.ZERO, Natural.ZERO,
+        userStates.putIfAbsent(username, new UserState(defaultFreeQuota, Natural.ZERO, Natural.ZERO, Natural.ZERO,
                 Natural.ZERO, now, "gbp", null, new HashMap<>()));
         return userStates.get(username);
     }
@@ -150,8 +176,11 @@ public class PaymentState implements Converter {
 
     public synchronized long getCurrentQuota(String username) {
         UserState userState = userStates.get(username);
-        if (userState == null)
+        if (userState == null) {
+            if (acceptingSignups())
+                return defaultFreeQuota.val;
             throw new IllegalStateException("Unknown user " + username);
+        }
         return userState.currentQuota();
     }
 }

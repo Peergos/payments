@@ -11,9 +11,11 @@ import java.util.zip.*;
 public abstract class StaticHandler implements HttpHandler
 {
     private final boolean isGzip;
+    private final String peergosUrl;
 
-    public StaticHandler(boolean isGzip) {
+    public StaticHandler(boolean isGzip, String peerogsUrl) {
         this.isGzip = isGzip;
+        this.peergosUrl = peerogsUrl;
     }
 
     public abstract Asset getAsset(String resourcePath) throws IOException;
@@ -91,6 +93,8 @@ public abstract class StaticHandler implements HttpHandler
 //            httpExchange.getResponseHeaders().set("content-security-policy", "default-src https: 'self'");
             // Don't anyone to load Peergos site in an iframe
             httpExchange.getResponseHeaders().set("x-frame-options", "sameorigin");
+            // Let the peergos server iframe the payment page
+            httpExchange.getResponseHeaders().set("Content-Security-Policy", "frame-ancestors " + peergosUrl + ";");
             // Enable cross site scripting protection
             httpExchange.getResponseHeaders().set("x-xss-protection", "1; mode=block");
             // Don't let browser sniff mime types
@@ -110,7 +114,6 @@ public abstract class StaticHandler implements HttpHandler
         }
     }
 
-
     protected static byte[] readResource(InputStream in, boolean gzip) throws IOException {
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
         OutputStream gout = gzip ? new GZIPOutputStream(bout) : new DataOutputStream(bout);
@@ -124,12 +127,11 @@ public abstract class StaticHandler implements HttpHandler
         return bout.toByteArray();
     }
 
-
     public StaticHandler withCache() {
         Map<String, Asset> cache = new ConcurrentHashMap<>();
         StaticHandler that = this;
 
-        return new StaticHandler(isGzip) {
+        return new StaticHandler(isGzip, peergosUrl) {
             @Override
             public Asset getAsset(String resourcePath) throws IOException {
                 if (! cache.containsKey(resourcePath))

@@ -35,8 +35,6 @@ public class CardHandler implements HttpHandler {
             System.out.println(params);
 
             state.addCard(params.get("username"), new CardToken(params.get("stripe_token")), LocalDateTime.now());
-            // TODO remove this test payment
-
 
             byte[] resp = "<html><body><h1>Card accepted</h1></body></html>".getBytes();
             exchange.sendResponseHeaders(200, resp.length);

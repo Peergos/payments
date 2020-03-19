@@ -71,6 +71,10 @@
       <fileset dir="${build}"/>
     </touch>
     <jar jarfile="${dist}/PaymentServer.jar" basedir="${build}" includes="peergos/**"></jar>
+    <!--flatten dependencies into a  fat-jar -->
+    <zip destfile="${dist}/PaymentServer.jar" update="true">
+        <zipgroupfileset dir="lib" includes="*.jar"/>
+    </zip>
     <mkdir dir="META-INF"/>
     <echo file="META-INF/MANIFEST.MF">Main-Class: peergos.payment.Server
 Class-Path: ${manifest_cp}</echo>

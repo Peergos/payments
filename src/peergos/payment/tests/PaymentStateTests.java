@@ -44,7 +44,7 @@ public class PaymentStateTests {
     public void paymentStateEvolution() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, new AcceptAll());
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, new AcceptAll(), new Natural(100*1024*1204), 10);
         String username = "bob";
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(5 * GIGABYTE);
@@ -61,7 +61,7 @@ public class PaymentStateTests {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
         AcceptAll bank = new AcceptAll();
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10);
         String username = "bob";
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(5 * GIGABYTE);
@@ -85,7 +85,7 @@ public class PaymentStateTests {
         Natural minQuota = new Natural(5 * GIGABYTE);
         AcceptAll bank = new AcceptAll();
         HashMap<String, PaymentState.UserState> userStates = new HashMap<>();
-        PaymentState global = new PaymentState(userStates, bytesPerCent, minQuota, bank);
+        PaymentState global = new PaymentState(userStates, bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10);
         String username = "bob";
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(5 * GIGABYTE);
@@ -107,7 +107,7 @@ public class PaymentStateTests {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
         AcceptAll bank = new AcceptAll();
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10);
         String username = "bob";
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(5 * GIGABYTE);
@@ -132,7 +132,7 @@ public class PaymentStateTests {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
         AcceptAll bank = new AcceptAll();
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10);
         String username = "bob";
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(5 * GIGABYTE);
@@ -164,7 +164,7 @@ public class PaymentStateTests {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
         AcceptAll bank = new AcceptAll();
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10);
         String username = "bob";
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(5 * GIGABYTE);
@@ -191,7 +191,7 @@ public class PaymentStateTests {
         Natural minQuota = new Natural(1 * GIGABYTE);
 
         AcceptAll bank = new AcceptAll();
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10);
         String username = "bob";
         CardToken card = new CardToken(cardtoken);
         Natural desiredQuota = new Natural(10 * GIGABYTE);
