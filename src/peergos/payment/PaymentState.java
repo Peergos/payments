@@ -42,9 +42,10 @@ public class PaymentState implements Converter {
          *  Take any payments and expire any old quota
          */
         public synchronized void update(LocalDateTime now, Converter converter, Bank bank) {
-            System.out.printf("********** Update payment state: " + currentQuotaBytes + " => ");
+            System.out.printf("********** Update payment state: current=");
+            System.out.println(this);
             if (now.isAfter(expiry.minusSeconds(1)))
-                currentQuotaBytes = freeBytes;
+                currentQuotaBytes = Natural.ZERO;
             if (currentQuotaBytes.val < desiredQuotaBytes.val) {
                 Natural toPay = converter.convertBytesToCents(desiredQuotaBytes.minus(currentQuotaBytes));
                 // use any existing balance first
@@ -54,7 +55,7 @@ public class PaymentState implements Converter {
                         currentQuotaBytes = desiredQuotaBytes;
                     } else {
                         currentQuotaBytes = currentQuotaBytes.plus(converter.convertCentsToBytes(currentBalanceCents));
-                        currentBalanceCents = freeBytes;
+                        currentBalanceCents = Natural.ZERO;
                     }
                 }
                 if (currentQuotaBytes.val < desiredQuotaBytes.val) {
@@ -73,7 +74,7 @@ public class PaymentState implements Converter {
                     }
                 }
             }
-            System.out.println("final quota: " + currentQuotaBytes);
+            System.out.println("final state: " + this);
         }
 
         public synchronized void setMinPayment(Natural cents) {
@@ -91,6 +92,21 @@ public class PaymentState implements Converter {
 
         public synchronized long currentQuota() {
             return freeBytes.val + currentQuotaBytes.val;
+        }
+
+        @Override
+        public String toString() {
+            return "UserState{" +
+                    "\n\t freeMiB=" + freeBytes.val/1024/1024 +
+                    ",\n\t minPaymentCents=" + minPaymentCents +
+                    ",\n\t currentBalanceCents=" + currentBalanceCents +
+                    ",\n\t currentQuotaMiB=" + currentQuotaBytes.val/1024/1024 +
+                    ",\n\t desiredQuotaMiB=" + desiredQuotaBytes.val/1024/1024 +
+                    ",\n\t expiry=" + expiry +
+                    ",\n\t currency='" + currency + '\'' +
+                    ",\n\t currentCard=" + currentCard +
+                    ",\n\t payments=" + payments +
+                    "\n}";
         }
     }
 
@@ -162,7 +178,6 @@ public class PaymentState implements Converter {
         if (userState == null) {
             // we assume the call is already authorized by the storage node
             userState = ensureUser(username, now);
-            userState.setDesiredQuota(minQuota);
         }
         userState.addCard(card);
         userState.update(now, this, bank);
