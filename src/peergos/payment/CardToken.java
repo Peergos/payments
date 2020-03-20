@@ -6,4 +6,8 @@ public class CardToken {
     public CardToken(String token) {
         this.token = token;
     }
+
+    public String toString() {
+        return token;
+    }
 }

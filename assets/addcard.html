@@ -14,5 +14,12 @@
       <input id="signedreq" type="hidden" name="signedreq" value="">
       <input class="submit" type="submit" value="Add card">
     </form>
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const name = urlParams.get('username');
+      const signedreq = urlParams.get('signedreq');
+      document.getElementById("username").value = name;
+      document.getElementById("signedreq").value = signedreq;
+    </script>
   </body>
 </html>
