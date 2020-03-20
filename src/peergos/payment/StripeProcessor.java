@@ -6,8 +6,10 @@ import java.io.*;
 import java.net.*;
 import java.time.*;
 import java.util.*;
+import java.util.logging.*;
 
 public class StripeProcessor implements Bank {
+    private static final Logger LOG = Logger.getLogger("NULL_FORMAT");
 
     private final String stripeSecretToken;
 
@@ -53,6 +55,17 @@ public class StripeProcessor implements Bank {
 
             DataInputStream din = new DataInputStream(conn.getInputStream());
             return IOUtil.readFully(din, 4096);
+        } catch (IOException e){
+            DataInputStream din = new DataInputStream(conn.getErrorStream());
+            String body = new String(IOUtil.readFully(din, 4096));
+            if (conn != null)
+                conn.disconnect();
+            Map resp = (Map) JSONParser.parse(body);
+            Map err = (Map) resp.get("error");
+            String code = (String) err.get("code");
+            String message = (String) err.get("message");
+            LOG.log(Level.SEVERE, code + ": " + message);
+            throw new IllegalStateException(message, e);
         } finally {
             if (conn != null)
                 conn.disconnect();
