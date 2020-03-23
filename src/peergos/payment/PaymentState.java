@@ -16,7 +16,6 @@ public class PaymentState implements Converter {
         private LocalDateTime expiry;
         private String currency;
         private CustomerResult customer;
-        private IntentResult intent;
         private final List<PaymentResult> payments;
 
         public UserState(Natural freeBytes,
@@ -27,7 +26,6 @@ public class PaymentState implements Converter {
                          LocalDateTime expiry,
                          String currency,
                          CustomerResult customer,
-                         IntentResult intent,
                          List<PaymentResult> payments) {
             this.freeBytes = freeBytes;
             this.minPaymentCents = minPaymentCents;
@@ -37,7 +35,6 @@ public class PaymentState implements Converter {
             this.expiry = expiry;
             this.currency = currency;
             this.customer = customer;
-            this.intent = intent;
             this.payments = payments;
         }
 
@@ -92,7 +89,7 @@ public class PaymentState implements Converter {
         public synchronized IntentResult generateIntent(Bank bank) {
             if (customer == null)
                 customer = bank.createCustomer();
-            return intent = bank.setupIntent(customer);
+            return bank.setupIntent(customer);
         }
 
         public synchronized long currentQuota() {
@@ -162,25 +159,22 @@ public class PaymentState implements Converter {
         return bytes.divide(bytesPerCent);
     }
 
-    public String getClientSecret(String username) {
+    public String generateClientSecret(String username) {
         if (! userStates.containsKey(username))
             throw new IllegalStateException("Unknown user: " + username);
         UserState userState = userStates.get(username);
-        if (userState.intent == null || userState.intent.created.plusWeeks(1).isAfter(LocalDateTime.now())) {
-            return userState.generateIntent(bank).clientSecret;
-        }
-        return userState.intent.clientSecret;
+        return userState.generateIntent(bank).clientSecret;
     }
 
     public synchronized UserState ensureUser(String username, LocalDateTime now) {
         userStates.putIfAbsent(username, new UserState(defaultFreeQuota, Natural.ZERO, Natural.ZERO, Natural.ZERO,
-                Natural.ZERO, now, "gbp", null, null, new ArrayList<>()));
+                Natural.ZERO, now, "gbp", null, new ArrayList<>()));
         return userStates.get(username);
     }
 
     public synchronized UserState ensureUser(String username, Natural freeSpace, LocalDateTime now) {
         userStates.putIfAbsent(username, new UserState(freeSpace, Natural.ZERO, Natural.ZERO, Natural.ZERO,
-                Natural.ZERO, now, "gbp", null, null, new ArrayList<>()));
+                Natural.ZERO, now, "gbp", null, new ArrayList<>()));
         return userStates.get(username);
     }
 
