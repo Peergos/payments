@@ -16,6 +16,7 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.*;
+import java.util.stream.*;
 
 public class Server {
     private static final Logger LOG = Logger.getLogger("NULL_FORMAT");
@@ -89,7 +90,12 @@ public class Server {
         Natural minQuota = new Natural(a.getLong("min-quota", 10 * GIGABYTE));
         Natural defaultFreeQuota = new Natural(a.getLong("free-quota", 100 * 1024*1024L));
         int maxUsers = a.getInt("max-users");
-        PaymentState state = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, defaultFreeQuota, maxUsers);
+        Set<Long> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
+                .map(Long::parseLong)
+                .map(g -> g * GIGABYTE)
+                .collect(Collectors.toSet());
+        PaymentState state = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank,
+                defaultFreeQuota, maxUsers, allowedQuotas);
 
         JavaPoster poster = new JavaPoster(new URL("http://" + a.getArg("peergos-address")));
         ContentAddressedStorage.HTTP dht = new ContentAddressedStorage.HTTP(poster, true);

@@ -120,19 +120,22 @@ public class PaymentState implements Converter {
     private final Bank bank;
     private final Natural defaultFreeQuota;
     private final int maxUsers;
+    private final Set<Long> allowedQuotas;
 
     public PaymentState(Map<String, UserState> userStates,
                         Natural bytesPerCent,
                         Natural minQuota,
                         Bank bank,
                         Natural defaultFreeQuota,
-                        int maxUsers) {
+                        int maxUsers,
+                        Set<Long> allowedQuotas) {
         this.userStates = userStates;
         this.bytesPerCent = bytesPerCent;
         this.minQuota = minQuota;
         this.bank = bank;
         this.defaultFreeQuota = defaultFreeQuota;
         this.maxUsers = maxUsers;
+        this.allowedQuotas = allowedQuotas;
     }
 
     public boolean acceptingSignups() {
@@ -182,6 +185,8 @@ public class PaymentState implements Converter {
     }
 
     public synchronized void setDesiredQuota(String username, Natural quota, LocalDateTime now) {
+        if (! allowedQuotas.contains(quota.val))
+            throw new IllegalStateException("Invalid quota requested: " + quota.val);
         UserState userState = ensureUser(username, now);
         userState.setDesiredQuota(quota.max(minQuota));
         userState.update(now, this, bank);
