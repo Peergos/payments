@@ -29,10 +29,11 @@ public class StripeProcessor implements Bank {
 
     @Override
     public CustomerResult createCustomer() {
-        Map<String, Object> res = (Map) JSONParser.parse(createCustomer(stripeSecretToken));
+        String rawJson = createCustomer(stripeSecretToken);
+        Map<String, Object> res = (Map) JSONParser.parse(rawJson);
         // TODO parse more fields from res
         String id = (String) res.get("id");
-        return new CustomerResult(id);
+        return new CustomerResult(id, rawJson);
     }
 
     @Override
@@ -82,7 +83,7 @@ public class StripeProcessor implements Bank {
             Map<String, Object> json = (Map) JSONParser.parse(res);
             List<Object> methods = (List)json.get("data");
             return methods.stream()
-                    .map(j -> new PaymentMethod((String)((Map)j).get("id")))
+                    .map(j -> new PaymentMethod((String)((Map)j).get("id"), JSONParser.toString(j)))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             e.printStackTrace();
