@@ -6,5 +6,9 @@ import java.time.*;
 
 public interface Bank {
 
-    PaymentResult takePayment(CardToken cardToken, Natural cents, String currency, LocalDateTime now);
+    CustomerResult createCustomer();
+
+    IntentResult setupIntent(CustomerResult cus);
+
+    PaymentResult takePayment(CustomerResult cus, Natural cents, String currency, LocalDateTime now);
 }

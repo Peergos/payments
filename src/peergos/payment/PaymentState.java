@@ -15,8 +15,9 @@ public class PaymentState implements Converter {
         private Natural desiredQuotaBytes;
         private LocalDateTime expiry;
         private String currency;
-        private CardToken currentCard;
-        private final Map<CardToken, List<PaymentResult>> payments;
+        private CustomerResult customer;
+        private IntentResult intent;
+        private final List<PaymentResult> payments;
 
         public UserState(Natural freeBytes,
                          Natural minPaymentCents,
@@ -25,8 +26,9 @@ public class PaymentState implements Converter {
                          Natural desiredQuotaBytes,
                          LocalDateTime expiry,
                          String currency,
-                         CardToken currentCard,
-                         Map<CardToken, List<PaymentResult>> payments) {
+                         CustomerResult customer,
+                         IntentResult intent,
+                         List<PaymentResult> payments) {
             this.freeBytes = freeBytes;
             this.minPaymentCents = minPaymentCents;
             this.currentBalanceCents = currentBalanceCents;
@@ -34,7 +36,8 @@ public class PaymentState implements Converter {
             this.desiredQuotaBytes = desiredQuotaBytes;
             this.expiry = expiry;
             this.currency = currency;
-            this.currentCard = currentCard;
+            this.customer = customer;
+            this.intent = intent;
             this.payments = payments;
         }
 
@@ -62,15 +65,16 @@ public class PaymentState implements Converter {
                     // take a payment
                     Natural remaining = converter.convertBytesToCents(desiredQuotaBytes.minus(currentQuotaBytes));
                     Natural toCharge = minPaymentCents.max(remaining);
-                    if (currentCard != null) {
-                        PaymentResult paymentResult = bank.takePayment(currentCard, toCharge, currency, now);
-                        payments.putIfAbsent(currentCard, new ArrayList<>());
-                        payments.get(currentCard).add(paymentResult);
+                    try {
+                        PaymentResult paymentResult = bank.takePayment(customer, toCharge, currency, now);
+                        payments.add(paymentResult);
                         if (paymentResult.isSuccessful()) {
                             currentBalanceCents = toCharge.minus(remaining);
                             currentQuotaBytes = desiredQuotaBytes;
                             expiry = now.plusMonths(1);
                         }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                 }
             }
@@ -85,9 +89,10 @@ public class PaymentState implements Converter {
             this.desiredQuotaBytes = bytes;
         }
 
-        public synchronized void addCard(CardToken card) {
-            currentCard = card;
-            payments.putIfAbsent(card, new ArrayList<>());
+        public synchronized IntentResult generateIntent(Bank bank) {
+            if (customer == null)
+                customer = bank.createCustomer();
+            return intent = bank.setupIntent(customer);
         }
 
         public synchronized long currentQuota() {
@@ -104,7 +109,6 @@ public class PaymentState implements Converter {
                     ",\n\t desiredQuotaMiB=" + desiredQuotaBytes.val/1024/1024 +
                     ",\n\t expiry=" + expiry +
                     ",\n\t currency='" + currency + '\'' +
-                    ",\n\t currentCard=" + currentCard +
                     ",\n\t payments=" + payments +
                     "\n}";
         }
@@ -155,31 +159,31 @@ public class PaymentState implements Converter {
         return bytes.divide(bytesPerCent);
     }
 
+    public String getClientSecret(String username) {
+        if (! userStates.containsKey(username))
+            throw new IllegalStateException("Unknown user: " + username);
+        UserState userState = userStates.get(username);
+        if (userState.intent == null || userState.intent.created.plusWeeks(1).isAfter(LocalDateTime.now())) {
+            return userState.generateIntent(bank).clientSecret;
+        }
+        return userState.intent.clientSecret;
+    }
+
     public synchronized UserState ensureUser(String username, LocalDateTime now) {
         userStates.putIfAbsent(username, new UserState(defaultFreeQuota, Natural.ZERO, Natural.ZERO, Natural.ZERO,
-                Natural.ZERO, now, "gbp", null, new HashMap<>()));
+                Natural.ZERO, now, "gbp", null, null, new ArrayList<>()));
         return userStates.get(username);
     }
 
     public synchronized UserState ensureUser(String username, Natural freeSpace, LocalDateTime now) {
         userStates.putIfAbsent(username, new UserState(freeSpace, Natural.ZERO, Natural.ZERO, Natural.ZERO,
-                Natural.ZERO, now, "gbp", null, new HashMap<>()));
+                Natural.ZERO, now, "gbp", null, null, new ArrayList<>()));
         return userStates.get(username);
     }
 
     public synchronized void setDesiredQuota(String username, Natural quota, LocalDateTime now) {
         UserState userState = ensureUser(username, now);
         userState.setDesiredQuota(quota.max(minQuota));
-        userState.update(now, this, bank);
-    }
-
-    public synchronized void addCard(String username, CardToken card, LocalDateTime now) {
-        UserState userState = userStates.get(username);
-        if (userState == null) {
-            // we assume the call is already authorized by the storage node
-            userState = ensureUser(username, now);
-        }
-        userState.addCard(card);
         userState.update(now, this, bank);
     }
 
@@ -192,8 +196,10 @@ public class PaymentState implements Converter {
     public synchronized long getCurrentQuota(String username) {
         UserState userState = userStates.get(username);
         if (userState == null) {
-            if (acceptingSignups())
+            if (acceptingSignups()) {
+                ensureUser(username, defaultFreeQuota, LocalDateTime.now());
                 return defaultFreeQuota.val;
+            }
             throw new IllegalStateException("Unknown user " + username);
         }
         return userState.currentQuota();

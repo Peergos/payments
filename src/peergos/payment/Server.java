@@ -20,7 +20,6 @@ import java.util.logging.*;
 public class Server {
     private static final Logger LOG = Logger.getLogger("NULL_FORMAT");
     public static final String UI_URL = "/";
-    public static final String CARD_URL = "/api/addCard";
 
     public static final int HANDLER_THREADS = 50;
     public static final int CONNECTION_BACKLOG = 100;
@@ -63,7 +62,6 @@ public class Server {
             handler = handler.withCache();
         }
 
-        publicServer.createContext(CARD_URL, new CardHandler(state));
         publicServer.createContext(UI_URL, handler);
 
         publicServer.setExecutor(Executors.newFixedThreadPool(HANDLER_THREADS));
