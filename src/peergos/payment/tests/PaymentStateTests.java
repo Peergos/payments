@@ -11,7 +11,7 @@ import java.util.stream.*;
 public class PaymentStateTests {
 
     private static final long GIGABYTE = 1024*1024*1024L;
-    private static final Set<Long> allowedQuotas = Stream.of(0L, 5 *GIGABYTE).collect(Collectors.toSet());
+    private static final Set<Long> allowedQuotas = Stream.of(0L, 5*GIGABYTE, 7*GIGABYTE, 10*GIGABYTE).collect(Collectors.toSet());
 
     private static class AcceptAll implements Bank {
         private final Random r = new Random(0);
@@ -34,7 +34,8 @@ public class PaymentStateTests {
 
         @Override
         public CustomerResult createCustomer() {
-            return new CustomerResult(rndString());
+            String id = rndString();
+            return new CustomerResult(id, "{\"id\":\""+id+"\"}");
         }
 
         @Override
@@ -60,14 +61,15 @@ public class PaymentStateTests {
     public void paymentStateEvolution() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, new AcceptAll(), new Natural(100*1024*1204), 10, allowedQuotas);
+        Natural freeQuota = new Natural(100 * 1024 * 1204);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, new AcceptAll(), freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
         global.ensureUser(username, now);
         global.setDesiredQuota(username, desiredQuota, now);
         long quota = global.getCurrentQuota(username);
-        Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val + freeQuota.val);
     }
 
     @Test
@@ -75,14 +77,15 @@ public class PaymentStateTests {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
         AcceptAll bank = new AcceptAll();
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10, allowedQuotas);
+        Natural freeQuota = new Natural(100 * 1024 * 1204);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
         global.ensureUser(username, now);
         global.setDesiredQuota(username, desiredQuota, now);
         long quota = global.getCurrentQuota(username);
-        Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val + freeQuota.val);
 
         for (int i=0; i < 10; i++)
             global.processAll(now);
@@ -117,14 +120,15 @@ public class PaymentStateTests {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
         AcceptAll bank = new AcceptAll();
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10, allowedQuotas);
+        Natural freeQuota = new Natural(100 * 1024 * 1204);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
         global.ensureUser(username, now);
         global.setDesiredQuota(username, desiredQuota, now);
         long quota = global.getCurrentQuota(username);
-        Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val + freeQuota.val);
 
         for (int i=0; i < 28; i++)
             global.processAll(now.plusDays(i));
@@ -140,14 +144,15 @@ public class PaymentStateTests {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
         AcceptAll bank = new AcceptAll();
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10, allowedQuotas);
+        Natural freeQuota = new Natural(100 * 1024 * 1204);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
         global.ensureUser(username, now);
         global.setDesiredQuota(username, desiredQuota, now);
         long quota = global.getCurrentQuota(username);
-        Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val + freeQuota.val);
 
         bank.failNext("Card Rejected!");
         global.processAll(now.plusMonths(1).plusDays(1));
@@ -170,18 +175,19 @@ public class PaymentStateTests {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
         AcceptAll bank = new AcceptAll();
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10, allowedQuotas);
+        Natural freeQuota = new Natural(100 * 1024 * 1204);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
         global.ensureUser(username, now);
         global.setDesiredQuota(username, desiredQuota, now);
         long quota = global.getCurrentQuota(username);
-        Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val + freeQuota.val);
         Natural increasedQuota = new Natural(10 * GIGABYTE);
         global.setDesiredQuota(username, increasedQuota, now);
         long newQuota = global.getCurrentQuota(username);
-        Assert.assertTrue("Quota increased", newQuota == increasedQuota.val);
+        Assert.assertTrue("Quota increased", newQuota == increasedQuota.val + freeQuota.val);
         List<PaymentResult> payments = bank.getPayments();
         Assert.assertTrue("Correct number of payments ", payments.size() == 2);
         Assert.assertTrue("First payment is for 5GiB", payments.get(0).amount.equals(global.convertBytesToCents(desiredQuota)));
@@ -195,19 +201,20 @@ public class PaymentStateTests {
         Natural minQuota = new Natural(1 * GIGABYTE);
 
         AcceptAll bank = new AcceptAll();
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10, allowedQuotas);
+        Natural freeQuota = new Natural(100 * 1024 * 1204);
+        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(10 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
         global.ensureUser(username, now);
         global.setDesiredQuota(username, desiredQuota, now);
         long quota = global.getCurrentQuota(username);
-        Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val + freeQuota.val);
         Natural decreasedQuota = new Natural(7 * GIGABYTE);
         global.setDesiredQuota(username, decreasedQuota, now);
         global.processAll(now.plusMonths(1));
         long newQuota = global.getCurrentQuota(username);
-        Assert.assertTrue("Quota decreased", newQuota == decreasedQuota.val);
+        Assert.assertTrue("Quota decreased", newQuota == decreasedQuota.val + freeQuota.val);
         List<PaymentResult> payments = bank.getPayments();
         Assert.assertTrue("Correct number of payments ", payments.size() == 2);
         Assert.assertTrue("First payment is for 10GiB", payments.get(0).amount.equals(global.convertBytesToCents(desiredQuota)));
