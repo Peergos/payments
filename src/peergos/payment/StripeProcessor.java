@@ -85,7 +85,7 @@ public class StripeProcessor implements Bank {
             Map<String, Object> json = (Map) JSONParser.parse(res);
             List<Object> methods = (List)json.get("data");
             return methods.stream()
-                    .map(j -> new PaymentMethod((String)((Map)j).get("id"), (Long)((Map)j).get("created"), JSONParser.toString(j)))
+                    .map(j -> new PaymentMethod((String)((Map)j).get("id"), (Integer)((Map)j).get("created"), JSONParser.toString(j)))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             e.printStackTrace();

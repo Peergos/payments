@@ -61,8 +61,9 @@ public class PaymentStateTests {
     public void paymentStateEvolution() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
+        Natural minPayment = new Natural(500);
         Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, new AcceptAll(), freeQuota, 10, allowedQuotas);
+        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, new AcceptAll(), freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
@@ -76,9 +77,10 @@ public class PaymentStateTests {
     public void idempotent() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
+        Natural minPayment = new Natural(500);
         AcceptAll bank = new AcceptAll();
         Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, freeQuota, 10, allowedQuotas);
+        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
@@ -98,9 +100,9 @@ public class PaymentStateTests {
     public void freeLevel() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
+        Natural minPayment = new Natural(500);
         AcceptAll bank = new AcceptAll();
-        HashMap<String, PaymentState.UserState> userStates = new HashMap<>();
-        PaymentState global = new PaymentState(userStates, bytesPerCent, minQuota, bank, new Natural(100*1024*1204), 10, allowedQuotas);
+        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, new Natural(100*1024*1204), 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         Natural freeSpace = new Natural(5 * GIGABYTE);
@@ -119,9 +121,10 @@ public class PaymentStateTests {
     public void chargeOnExpiry() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
+        Natural minPayment = new Natural(500);
         AcceptAll bank = new AcceptAll();
         Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, freeQuota, 10, allowedQuotas);
+        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
@@ -143,9 +146,10 @@ public class PaymentStateTests {
     public void failAndRecover() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
+        Natural minPayment = new Natural(500);
         AcceptAll bank = new AcceptAll();
         Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, freeQuota, 10, allowedQuotas);
+        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
@@ -174,9 +178,10 @@ public class PaymentStateTests {
     public void increaseQuotaAndTakePayment() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(5 * GIGABYTE);
+        Natural minPayment = new Natural(500);
         AcceptAll bank = new AcceptAll();
         Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, freeQuota, 10, allowedQuotas);
+        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
@@ -199,10 +204,10 @@ public class PaymentStateTests {
     public void decreaseQuotaAndTakePayment() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
         Natural minQuota = new Natural(1 * GIGABYTE);
-
+        Natural minPayment = new Natural(500);
         AcceptAll bank = new AcceptAll();
         Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank, freeQuota, 10, allowedQuotas);
+        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, freeQuota, 10, allowedQuotas);
         String username = "bob";
         Natural desiredQuota = new Natural(10 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();

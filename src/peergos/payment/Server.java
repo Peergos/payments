@@ -88,13 +88,14 @@ public class Server {
         Bank bank = new StripeProcessor(stripe_secret_key);
         Natural bytesPerCent = new Natural(1024 * 1024 * 1024L / 50);
         Natural minQuota = new Natural(a.getLong("min-quota", 10 * GIGABYTE));
+        Natural minPayment = new Natural(a.getLong("min-payment", 500));
         Natural defaultFreeQuota = new Natural(a.getLong("free-quota", 100 * 1024*1024L));
         int maxUsers = a.getInt("max-users");
         Set<Long> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
                 .map(Long::parseLong)
                 .map(g -> g * GIGABYTE)
                 .collect(Collectors.toSet());
-        PaymentState state = new PaymentState(new HashMap<>(), bytesPerCent, minQuota, bank,
+        PaymentState state = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank,
                 defaultFreeQuota, maxUsers, allowedQuotas);
 
         JavaPoster poster = new JavaPoster(new URL("http://" + a.getArg("peergos-address")));
