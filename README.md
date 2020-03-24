@@ -7,6 +7,7 @@ To run during testing use
 > java -jar PaymentServer.jar -webroot assets -webcache false -peergos-address localhost:8000 -max-users 10 -stripe-secret $secret
 
 # Basic flow
+The Stripe documentation for this is here: https://stripe.com/docs/payments/save-and-reuse
 
 1. At sign up
 
