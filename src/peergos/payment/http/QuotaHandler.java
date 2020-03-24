@@ -75,8 +75,7 @@ public class QuotaHandler  implements HttpHandler {
                     TimeLimited.isAllowedTime(signedTime, 120, dht, owner);
                     String username = core.getUsername(owner).join();
                     boolean newClientSecret = Boolean.parseBoolean(last.apply("new-client-secret"));
-                    String clientSecret = newClientSecret ? state.generateClientSecret(username) : "";
-                    result = new PaymentProperties(ourUrl, clientSecret).toCbor();
+                    result = state.getPaymentProperties(username, newClientSecret, ourUrl).toCbor();
                     break;
                 }
                 case "quota": {

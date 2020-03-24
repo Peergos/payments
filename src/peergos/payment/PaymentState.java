@@ -1,6 +1,7 @@
 package peergos.payment;
 
 import peergos.payment.util.*;
+import peergos.shared.storage.*;
 
 import java.time.*;
 import java.util.*;
@@ -157,6 +158,12 @@ public class PaymentState implements Converter {
 
     public Natural convertBytesToCents(Natural bytes) {
         return bytes.divide(bytesPerCent);
+    }
+
+    public PaymentProperties getPaymentProperties(String username, boolean newClientSecret, String ourUrl) {
+        String clientSecret = newClientSecret ? generateClientSecret(username) : "";
+        long desiredQuota = userStates.get(username).desiredQuotaBytes.val;
+        return new PaymentProperties(ourUrl, clientSecret, desiredQuota);
     }
 
     public String generateClientSecret(String username) {
