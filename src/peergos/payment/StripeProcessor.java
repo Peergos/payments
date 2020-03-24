@@ -41,6 +41,8 @@ public class StripeProcessor implements Bank {
         List<PaymentMethod> paymentMethods = listPaymentMethods(cus, stripeSecretToken);
         if (paymentMethods.isEmpty())
             throw new IllegalStateException("No card registered for user!");
+        Collections.sort(paymentMethods, (a, b) -> (int) (b.created - a.created));
+        // use the payment method most recently created
         PaymentMethod card = paymentMethods.get(0);
         Map<String, Object> res = (Map) JSONParser.parse(takePayment(cents, currency, cus, card, stripeSecretToken));
         boolean success = "succeeded".equals(res.get("status"));
@@ -83,7 +85,7 @@ public class StripeProcessor implements Bank {
             Map<String, Object> json = (Map) JSONParser.parse(res);
             List<Object> methods = (List)json.get("data");
             return methods.stream()
-                    .map(j -> new PaymentMethod((String)((Map)j).get("id"), JSONParser.toString(j)))
+                    .map(j -> new PaymentMethod((String)((Map)j).get("id"), (Long)((Map)j).get("created"), JSONParser.toString(j)))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             e.printStackTrace();
