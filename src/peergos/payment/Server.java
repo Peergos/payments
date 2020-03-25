@@ -1,11 +1,14 @@
 package peergos.payment;
 
 import com.sun.net.httpserver.*;
+import org.sqlite.*;
 import peergos.payment.http.*;
 import peergos.payment.http.FileHandler;
 import peergos.payment.util.*;
+import peergos.payment.util.Args;
 import peergos.server.*;
 import peergos.server.storage.admin.*;
+import peergos.server.util.*;
 import peergos.shared.corenode.*;
 import peergos.shared.storage.*;
 import peergos.shared.user.*;
@@ -13,6 +16,7 @@ import peergos.shared.user.*;
 import java.io.*;
 import java.net.*;
 import java.nio.file.*;
+import java.sql.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.*;
@@ -80,7 +84,16 @@ public class Server {
         return new InetSocketAddress(addr.substring(0, split), Integer.parseInt(addr.substring(split + 1)));
     }
 
-    public static void main(String[] args) throws IOException {
+    public static Connection build(String dbPath) throws SQLException {
+        String url = "jdbc:sqlite:" + dbPath;
+        SQLiteDataSource dc = new SQLiteDataSource();
+        dc.setUrl(url);
+        Connection conn = dc.getConnection();
+        conn.setAutoCommit(true);
+        return conn;
+    }
+
+    public static void main(String[] args) throws Exception {
         Main.initCrypto();
         Args a = Args.parse(args);
 
@@ -95,7 +108,9 @@ public class Server {
                 .map(Long::parseLong)
                 .map(g -> g * GIGABYTE)
                 .collect(Collectors.toSet());
-        PaymentState state = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank,
+        Connection sqlConn = build(a.getArg("payment-store-sql-file", "payments-store.sql"));
+        PaymentStore store = new SqlPaymentStore(sqlConn);
+        PaymentState state = new PaymentState(store, bytesPerCent, minQuota, minPayment, bank,
                 defaultFreeQuota, maxUsers, allowedQuotas);
 
         JavaPoster poster = new JavaPoster(new URL("http://" + a.getArg("peergos-address")));

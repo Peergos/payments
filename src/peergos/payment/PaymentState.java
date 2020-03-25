@@ -76,12 +76,12 @@ public class PaymentState implements Converter {
         return bank.setupIntent(customer).clientSecret;
     }
 
-    public synchronized UserState ensureUser(String username, LocalDateTime now) {
-        return ensureUser(username, defaultFreeQuota, now);
+    public synchronized void ensureUser(String username, LocalDateTime now) {
+        ensureUser(username, defaultFreeQuota, now);
     }
 
-    public synchronized UserState ensureUser(String username, Natural freeSpace, LocalDateTime now) {
-        return userStates.ensureUser(username, freeSpace, now);
+    public synchronized void ensureUser(String username, Natural freeSpace, LocalDateTime now) {
+        userStates.ensureUser(username, freeSpace, now);
     }
 
     /**
@@ -113,7 +113,6 @@ public class PaymentState implements Converter {
                 try {
                     CustomerResult customer = userStates.getCustomer(username);
                     PaymentResult paymentResult = bank.takePayment(customer, toCharge, "gbp", now);
-                    userStates.addPayment(username, paymentResult);
                     if (paymentResult.isSuccessful()) {
                         userStates.setCurrentBalance(username, toCharge.minus(remaining));
                         userStates.setCurrentQuota(username, desiredQuotaBytes);

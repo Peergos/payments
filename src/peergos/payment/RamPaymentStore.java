@@ -28,10 +28,9 @@ public class RamPaymentStore implements PaymentStore {
         return new ArrayList<>(userStates.keySet());
     }
 
-    public synchronized UserState ensureUser(String username, Natural freeSpace, LocalDateTime now) {
-        userStates.putIfAbsent(username, new UserState(freeSpace, Natural.ZERO, Natural.ZERO, Natural.ZERO,
-                Natural.ZERO, now, "gbp", null, new ArrayList<>()));
-        return userStates.get(username);
+    public synchronized void ensureUser(String username, Natural freeSpace, LocalDateTime now) {
+        userStates.putIfAbsent(username, new UserState(freeSpace, Natural.ZERO, Natural.ZERO,
+                Natural.ZERO, now, null));
     }
 
     @Override
@@ -67,11 +66,6 @@ public class RamPaymentStore implements PaymentStore {
     @Override
     public Natural getFreeQuota(String username) {
         return userStates.get(username).getFreeQuota();
-    }
-
-    @Override
-    public void addPayment(String username, PaymentResult payment) {
-        userStates.get(username).addPayment(payment);
     }
 
     @Override
