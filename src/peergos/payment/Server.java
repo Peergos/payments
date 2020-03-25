@@ -93,6 +93,30 @@ public class Server {
         return conn;
     }
 
+    private static Pricer buildPricer(Args a) {
+        boolean fixedPrices = a.hasArg("quota-prices");
+        if (! fixedPrices)
+            return new LinearPricer(new Natural(1024 * 1024 * 1024L / 50));
+
+         List<Natural> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
+                .map(Long::parseLong)
+                .map(g -> g * GIGABYTE)
+                 .map(Natural::new)
+                .collect(Collectors.toList());
+
+         List<Natural> prices = Arrays.stream(a.getArg("quota-prices", "0,500,5000").split(","))
+                .map(Long::parseLong)
+                 .map(Natural::new)
+                .collect(Collectors.toList());
+
+         if (prices.size() != allowedQuotas.size())
+             throw new IllegalStateException("Number of prices != number of quotas!");
+         Map<Natural, Natural> bytesToPrice = new HashMap<>();
+         for (int i=0; i < prices.size(); i++)
+             bytesToPrice.put(allowedQuotas.get(i), prices.get(i));
+         return new FixedPricer(bytesToPrice);
+    }
+
     public static void main(String[] args) throws Exception {
         Main.initCrypto();
         Args a = Args.parse(args);
@@ -109,7 +133,7 @@ public class Server {
 
         Connection sqlConn = build(a.getArg("payment-store-sql-file", "payments-store.sql"));
         PaymentStore store = new SqlPaymentStore(sqlConn);
-        Pricer pricer = new LinearPricer(new Natural(1024 * 1024 * 1024L / 50));
+        Pricer pricer = buildPricer(a);
         PaymentState state = new PaymentState(store, pricer, minPayment, bank, defaultFreeQuota, maxUsers, allowedQuotas);
 
         JavaPoster poster = new JavaPoster(new URL("http://" + a.getArg("peergos-address")));
