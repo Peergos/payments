@@ -13,7 +13,7 @@ public class SqlPaymentStore implements PaymentStore {
     private static final Logger LOG = Logging.LOG();
 
     private static final String CREATE_USER_TABLE = "CREATE TABLE IF NOT EXISTS users " +
-            "(name text primary key not null, customer text, free integer not null, desired integer not null, " +
+            "(name text primary key not null, customerid text, free integer not null, desired integer not null, " +
             "quota integer not null, expiry integer, balance integer not null);";
 
     private Connection conn;
@@ -95,7 +95,7 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public void setCustomer(String username, CustomerResult customer) {
-        try (PreparedStatement insert = conn.prepareStatement("UPDATE users SET customer = ? WHERE name = ?;")) {
+        try (PreparedStatement insert = conn.prepareStatement("UPDATE users SET customerid = ? WHERE name = ?;")) {
             insert.setString(1, customer.id);
             insert.setString(2, username);
             insert.execute();
@@ -107,7 +107,7 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public CustomerResult getCustomer(String username) {
-        try (PreparedStatement count = conn.prepareStatement("SELECT customer FROM users where name = ?;")) {
+        try (PreparedStatement count = conn.prepareStatement("SELECT customerid FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
             String id = resultSet.getString(1);
