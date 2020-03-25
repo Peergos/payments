@@ -6,11 +6,10 @@ import peergos.shared.storage.*;
 import java.time.*;
 import java.util.*;
 
-public class PaymentState implements Converter {
+public class PaymentState {
 
     private final PaymentStore userStates;
-    private final Natural bytesPerCent;
-    private final Natural minQuota;
+    private final Pricer pricer;
     private final Natural minPaymentCents;
     private final Bank bank;
     private final Natural defaultFreeQuota;
@@ -18,16 +17,14 @@ public class PaymentState implements Converter {
     private final Set<Long> allowedQuotas;
 
     public PaymentState(PaymentStore userStates,
-                        Natural bytesPerCent,
-                        Natural minQuota,
+                        Pricer pricer,
                         Natural minPaymentCents,
                         Bank bank,
                         Natural defaultFreeQuota,
                         int maxUsers,
                         Set<Long> allowedQuotas) {
         this.userStates = userStates;
-        this.bytesPerCent = bytesPerCent;
-        this.minQuota = minQuota;
+        this.pricer = pricer;
         this.minPaymentCents = minPaymentCents;
         this.bank = bank;
         this.defaultFreeQuota = defaultFreeQuota;
@@ -49,14 +46,6 @@ public class PaymentState implements Converter {
 
     public boolean hasUser(String username) {
         return userStates.hasUser(username);
-    }
-
-    public Natural convertCentsToBytes(Natural cents) {
-        return cents.times(bytesPerCent);
-    }
-
-    public Natural convertBytesToCents(Natural bytes) {
-        return bytes.divide(bytesPerCent);
     }
 
     public PaymentProperties getPaymentProperties(String username, boolean newClientSecret, String ourUrl) {
@@ -94,21 +83,20 @@ public class PaymentState implements Converter {
 
         Natural currentQuotaBytes = userStates.getCurrentQuota(username);
         if (currentQuotaBytes.val < desiredQuotaBytes.val) {
-            Natural toPay = convertBytesToCents(desiredQuotaBytes.minus(currentQuotaBytes));
+            Natural toPay = pricer.convertBytesToCents(desiredQuotaBytes.minus(currentQuotaBytes));
             // use any existing balance first
             Natural currentBalanceCents = userStates.getCurrentBalance(username);
             if (currentBalanceCents.val > 0) {
                 if (currentBalanceCents.val >= toPay.val) {
                     userStates.setCurrentBalance(username, currentBalanceCents.minus(toPay));
-                    currentQuotaBytes = desiredQuotaBytes;
-                } else {
-                    currentQuotaBytes = currentQuotaBytes.plus(convertCentsToBytes(currentBalanceCents));
-                    userStates.setCurrentBalance(username, Natural.ZERO);
+                    userStates.setCurrentQuota(username, desiredQuotaBytes);
+                    userStates.setQuotaExpiry(username, now.plusMonths(1));
+                    return;
                 }
             }
             if (currentQuotaBytes.val < desiredQuotaBytes.val) {
                 // take a payment
-                Natural remaining = convertBytesToCents(desiredQuotaBytes.minus(currentQuotaBytes));
+                Natural remaining = pricer.priceDifferenceInCents(currentQuotaBytes, desiredQuotaBytes);
                 Natural toCharge = minPaymentCents.max(remaining);
                 try {
                     CustomerResult customer = userStates.getCustomer(username);
@@ -129,7 +117,7 @@ public class PaymentState implements Converter {
         if (! allowedQuotas.contains(quota.val))
             throw new IllegalStateException("Invalid quota requested: " + quota.val);
         userStates.ensureUser(username, defaultFreeQuota, now);
-        userStates.setDesiredQuota(username, quota.max(minQuota), now);
+        userStates.setDesiredQuota(username, quota, now);
         processUser(username, now);
     }
 

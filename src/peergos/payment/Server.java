@@ -99,8 +99,6 @@ public class Server {
 
         String stripe_secret_key = a.getArg("stripe-secret");
         Bank bank = new StripeProcessor(stripe_secret_key);
-        Natural bytesPerCent = new Natural(1024 * 1024 * 1024L / 50);
-        Natural minQuota = new Natural(a.getLong("min-quota", 10 * GIGABYTE));
         Natural minPayment = new Natural(a.getLong("min-payment", 500));
         Natural defaultFreeQuota = new Natural(a.getLong("free-quota", 100 * 1024*1024L));
         int maxUsers = a.getInt("max-users");
@@ -108,10 +106,11 @@ public class Server {
                 .map(Long::parseLong)
                 .map(g -> g * GIGABYTE)
                 .collect(Collectors.toSet());
+
         Connection sqlConn = build(a.getArg("payment-store-sql-file", "payments-store.sql"));
         PaymentStore store = new SqlPaymentStore(sqlConn);
-        PaymentState state = new PaymentState(store, bytesPerCent, minQuota, minPayment, bank,
-                defaultFreeQuota, maxUsers, allowedQuotas);
+        Pricer pricer = new LinearPricer(new Natural(1024 * 1024 * 1024L / 50));
+        PaymentState state = new PaymentState(store, pricer, minPayment, bank, defaultFreeQuota, maxUsers, allowedQuotas);
 
         JavaPoster poster = new JavaPoster(new URL("http://" + a.getArg("peergos-address")));
         ContentAddressedStorage.HTTP dht = new ContentAddressedStorage.HTTP(poster, true);
