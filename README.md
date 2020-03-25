@@ -6,6 +6,10 @@ A payment processor for a Peergos storage server
 To run during testing use
 > java -jar PaymentServer.jar -webroot assets -webcache false -peergos-address localhost:8000 -max-users 10 -stripe-secret $secret
 
+There are test card numbers here:
+
+https://stripe.com/docs/testing
+
 # Basic flow
 The Stripe documentation for this is here: https://stripe.com/docs/payments/save-and-reuse
 
