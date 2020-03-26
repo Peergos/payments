@@ -8,7 +8,6 @@ import peergos.payment.util.*;
 import peergos.payment.util.Args;
 import peergos.server.*;
 import peergos.server.storage.admin.*;
-import peergos.server.util.*;
 import peergos.shared.corenode.*;
 import peergos.shared.storage.*;
 import peergos.shared.user.*;
@@ -84,13 +83,17 @@ public class Server {
         return new InetSocketAddress(addr.substring(0, split), Integer.parseInt(addr.substring(split + 1)));
     }
 
-    public static Connection build(String dbPath) throws SQLException {
+    public static Connection buildSql(String dbPath) {
         String url = "jdbc:sqlite:" + dbPath;
         SQLiteDataSource dc = new SQLiteDataSource();
         dc.setUrl(url);
-        Connection conn = dc.getConnection();
-        conn.setAutoCommit(true);
-        return conn;
+        try {
+            Connection conn = dc.getConnection();
+            conn.setAutoCommit(true);
+            return conn;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static Pricer buildPricer(Args a) {
@@ -131,7 +134,7 @@ public class Server {
                 .map(g -> g * GIGABYTE)
                 .collect(Collectors.toSet());
 
-        Connection sqlConn = build(a.getArg("payment-store-sql-file", "payments-store.sql"));
+        Connection sqlConn = buildSql(a.getArg("payment-store-sql-file", "payments-store.sql"));
         PaymentStore store = new SqlPaymentStore(sqlConn);
         Pricer pricer = buildPricer(a);
         PaymentState state = new PaymentState(store, pricer, minPayment, bank, defaultFreeQuota, maxUsers, allowedQuotas);
