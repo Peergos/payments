@@ -13,7 +13,7 @@ public class SqlPaymentStore implements PaymentStore {
     private static final Logger LOG = Logging.LOG();
 
     private static final String CREATE_USER_TABLE = "CREATE TABLE IF NOT EXISTS users " +
-            "(name text primary key not null, customerid text, free integer not null, desired integer not null, " +
+            "(name varchar(32) primary key not null, customerid text, free integer not null, desired integer not null, " +
             "quota integer not null, expiry integer, balance integer not null);";
 
     private Connection conn;
