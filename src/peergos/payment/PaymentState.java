@@ -50,8 +50,9 @@ public class PaymentState {
 
     public PaymentProperties getPaymentProperties(String username, boolean newClientSecret, String ourUrl) {
         Optional<String> clientSecret = newClientSecret ? Optional.of(generateClientSecret(username)) : Optional.empty();
+        long freeQuota = userStates.getFreeQuota(username).val;
         long desiredQuota = userStates.getDesiredQuota(username).val;
-        return new PaymentProperties(ourUrl, clientSecret, desiredQuota);
+        return new PaymentProperties(ourUrl, clientSecret, freeQuota, desiredQuota);
     }
 
     public String generateClientSecret(String username) {
