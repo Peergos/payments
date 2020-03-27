@@ -18,8 +18,8 @@ public class SqlPaymentStore implements PaymentStore {
             "free INTEGER NOT NULL CHECK (free >= 0), " +
             "desired INTEGER NOT NULL CHECK (desired >= 0), " +
             "quota INTEGER NOT NULL CHECK (quota >= 0), " +
-            "expiry INTEGER, " +
-            "balance INTEGER NOT NULL);";
+            "expiry DATETIME NOT NULL, " +
+            "balance INTEGER NOT NULL CHECK (balance >= 0));";
 
     private Connection conn;
 
@@ -85,12 +85,13 @@ public class SqlPaymentStore implements PaymentStore {
     public void ensureUser(String username, Natural freeSpace, LocalDateTime now) {
         if (hasUser(username))
             return;
-        try (PreparedStatement insert = conn.prepareStatement("INSERT INTO users (name, free, desired, quota, balance) VALUES(?, ?, ?, ?, ?);")) {
+        try (PreparedStatement insert = conn.prepareStatement("INSERT INTO users (name, free, desired, quota, expiry, balance) VALUES(?, ?, ?, ?, ?, ?);")) {
             insert.setString(1, username);
             insert.setLong(2, freeSpace.val);
             insert.setLong(3, 0);
             insert.setLong(4, 0);
-            insert.setLong(5, 0);
+            insert.setTimestamp(5, Timestamp.valueOf(now));
+            insert.setLong(6, 0);
             insert.execute();
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -224,7 +225,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public void setQuotaExpiry(String username, LocalDateTime expiry) {
         try (PreparedStatement insert = conn.prepareStatement("UPDATE users SET expiry = ? WHERE name = ?;")) {
-            insert.setLong(1, expiry.toEpochSecond(ZoneOffset.UTC));
+            insert.setTimestamp(1, Timestamp.from(expiry.toInstant(ZoneOffset.UTC)));
             insert.setString(2, username);
             insert.execute();
         } catch (SQLException sqe) {
@@ -238,7 +239,8 @@ public class SqlPaymentStore implements PaymentStore {
         try (PreparedStatement count = conn.prepareStatement("SELECT expiry FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
-            return LocalDateTime.ofEpochSecond(resultSet.getLong(1), 0, ZoneOffset.UTC);
+            Timestamp timestamp = resultSet.getTimestamp(1);
+            return timestamp.toInstant().atZone(ZoneId.of("UTC")).toLocalDateTime();
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
             throw new RuntimeException(sqe);
