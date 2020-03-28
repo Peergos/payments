@@ -32,4 +32,7 @@ public interface PaymentStore {
 
     void setQuotaExpiry(String username, LocalDateTime expiry);
     LocalDateTime getQuotaExpiry(String username);
+
+    void setError(String username, String error);
+    Optional<String> getError(String username);
 }

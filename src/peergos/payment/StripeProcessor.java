@@ -44,11 +44,16 @@ public class StripeProcessor implements Bank {
         Collections.sort(paymentMethods, (a, b) -> (int) (b.created - a.created));
         // use the payment method most recently created
         PaymentMethod card = paymentMethods.get(0);
-        Map<String, Object> res = (Map) JSONParser.parse(takePayment(cents, currency, cus, card, stripeSecretToken));
-        boolean success = "succeeded".equals(res.get("status"));
-        Optional<String> errMessage = Optional.ofNullable(res.get("failure_message")).map(x -> (String) x);
-        // TODO parse more fields from res
-        return new PaymentResult(cents, currency, now, errMessage);
+        try {
+            Map<String, Object> res = (Map) JSONParser.parse(takePayment(cents, currency, cus, card, stripeSecretToken));
+            boolean success = "succeeded".equals(res.get("status"));
+            Optional<String> errMessage = Optional.ofNullable(res.get("failure_message")).map(x -> (String) x);
+            // TODO parse more fields from res
+            return new PaymentResult(cents, currency, now, errMessage);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new PaymentResult(cents, currency, now, Optional.of(e.getMessage()));
+        }
     }
 
     public static String createCustomer(String stripeSecretKey) {
@@ -93,22 +98,21 @@ public class StripeProcessor implements Bank {
         }
     }
 
-    public static String takePayment(Natural cents, String currency, CustomerResult cus, PaymentMethod method, String stripeSecretKey) {
-        try {
-            Map<String, String> params = new HashMap<>();
-            params.put("amount", Long.toString(cents.val));
-            params.put("currency", currency);
-            params.put("customer", cus.id);
-            params.put("payment_method", method.id);
-            params.put("off_session", "true");
-            params.put("confirm", "true");
-            String res = post("https://api.stripe.com/v1/payment_intents", stripeSecretKey, params);
-            System.out.println("Took payment: " + res);
-            return res;
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
-        }
+    public static String takePayment(Natural cents,
+                                     String currency,
+                                     CustomerResult cus,
+                                     PaymentMethod method,
+                                     String stripeSecretKey) throws IOException {
+        Map<String, String> params = new HashMap<>();
+        params.put("amount", Long.toString(cents.val));
+        params.put("currency", currency);
+        params.put("customer", cus.id);
+        params.put("payment_method", method.id);
+        params.put("off_session", "true");
+        params.put("confirm", "true");
+        String res = post("https://api.stripe.com/v1/payment_intents", stripeSecretKey, params);
+        System.out.println("Took payment: " + res);
+        return res;
     }
 
     public static String post(String url, String stripeSecretKey, Map<String, String> parameters) throws IOException {

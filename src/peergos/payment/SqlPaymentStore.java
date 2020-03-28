@@ -19,6 +19,7 @@ public class SqlPaymentStore implements PaymentStore {
             "desired INTEGER NOT NULL CHECK (desired >= 0), " +
             "quota INTEGER NOT NULL CHECK (quota >= 0), " +
             "expiry DATETIME NOT NULL, " +
+            "error TEXT, " +
             "balance INTEGER NOT NULL CHECK (balance >= 0));";
 
     private Connection conn;
@@ -241,6 +242,30 @@ public class SqlPaymentStore implements PaymentStore {
             ResultSet resultSet = count.executeQuery();
             Timestamp timestamp = resultSet.getTimestamp(1);
             return timestamp.toInstant().atZone(ZoneId.of("UTC")).toLocalDateTime();
+        } catch (SQLException sqe) {
+            LOG.log(Level.WARNING, sqe.getMessage(), sqe);
+            throw new RuntimeException(sqe);
+        }
+    }
+
+    @Override
+    public void setError(String username, String error) {
+        try (PreparedStatement insert = conn.prepareStatement("UPDATE users SET error = ? WHERE name = ?;")) {
+            insert.setString(1, error);
+            insert.setString(2, username);
+            insert.execute();
+        } catch (SQLException sqe) {
+            LOG.log(Level.WARNING, sqe.getMessage(), sqe);
+            throw new RuntimeException(sqe);
+        }
+    }
+
+    @Override
+    public Optional<String> getError(String username) {
+        try (PreparedStatement count = conn.prepareStatement("SELECT error FROM users where name = ?;")) {
+            count.setString(1, username);
+            ResultSet resultSet = count.executeQuery();
+            return Optional.ofNullable(resultSet.getString(1));
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
             throw new RuntimeException(sqe);

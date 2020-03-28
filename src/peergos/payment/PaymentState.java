@@ -52,7 +52,9 @@ public class PaymentState {
         Optional<String> clientSecret = newClientSecret ? Optional.of(generateClientSecret(username)) : Optional.empty();
         long freeQuota = userStates.getFreeQuota(username).val;
         long desiredQuota = userStates.getDesiredQuota(username).val;
-        return new PaymentProperties(ourUrl, clientSecret, freeQuota, desiredQuota);
+        Optional<String> error = userStates.getError(username);
+        return error.map(err -> PaymentProperties.errored(ourUrl, err, clientSecret, freeQuota, desiredQuota))
+                .orElseGet(() -> new PaymentProperties(ourUrl, clientSecret, freeQuota, desiredQuota));
     }
 
     public String generateClientSecret(String username) {
@@ -106,6 +108,8 @@ public class PaymentState {
                         userStates.setCurrentBalance(username, toCharge.minus(remaining));
                         userStates.setCurrentQuota(username, desiredQuotaBytes);
                         userStates.setQuotaExpiry(username, now.plusMonths(1));
+                    } else {
+                        userStates.setError(username, paymentResult.failureError.get());
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
