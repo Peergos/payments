@@ -1,6 +1,8 @@
 # payments
 A payment processor for a Peergos storage server
 
+To run use
+> java -jar PaymentServer.jar -peergos-address localhost:8000 -max-users 10 -stripe-secret $secret
 
 # Testing
 To run during testing use
