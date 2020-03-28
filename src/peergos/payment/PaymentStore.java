@@ -13,7 +13,7 @@ public interface PaymentStore {
 
     List<String> getAllUsernames();
 
-    UserState ensureUser(String username, Natural freeSpace, LocalDateTime now);
+    void ensureUser(String username, Natural freeSpace, LocalDateTime now);
 
     void setCustomer(String username, CustomerResult customer);
     CustomerResult getCustomer(String username);
@@ -29,8 +29,6 @@ public interface PaymentStore {
 
     void setFreeQuota(String username, Natural quota);
     Natural getFreeQuota(String username);
-
-    void addPayment(String username, PaymentResult payment);
 
     void setQuotaExpiry(String username, LocalDateTime expiry);
     LocalDateTime getQuotaExpiry(String username);

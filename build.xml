@@ -64,13 +64,17 @@
     <copy todir="${dist}/lib">
       <fileset dir="lib"/>
     </copy>
+    <mkdir dir="${build}/webroot"/>
+    <copy todir="${build}/webroot">
+      <fileset dir="assets"/>
+    </copy>
     <manifestclasspath property="manifest_cp" jarfile="myjar.jar">
       <classpath refid="dep.runtime" />
     </manifestclasspath>
     <touch millis="${timestamp.millis}">
       <fileset dir="${build}"/>
     </touch>
-    <jar jarfile="${dist}/PaymentServer.jar" basedir="${build}" includes="peergos/**"></jar>
+    <jar jarfile="${dist}/PaymentServer.jar" basedir="${build}" includes="peergos/**,webroot/**"></jar>
     <!--flatten dependencies into a  fat-jar -->
     <zip destfile="${dist}/PaymentServer.jar" update="true">
         <zipgroupfileset dir="lib" includes="*.jar"/>

@@ -1,9 +1,11 @@
 package peergos.payment;
 
 import com.sun.net.httpserver.*;
+import org.sqlite.*;
 import peergos.payment.http.*;
 import peergos.payment.http.FileHandler;
 import peergos.payment.util.*;
+import peergos.payment.util.Args;
 import peergos.server.*;
 import peergos.server.storage.admin.*;
 import peergos.shared.corenode.*;
@@ -13,6 +15,7 @@ import peergos.shared.user.*;
 import java.io.*;
 import java.net.*;
 import java.nio.file.*;
+import java.sql.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.*;
@@ -80,14 +83,49 @@ public class Server {
         return new InetSocketAddress(addr.substring(0, split), Integer.parseInt(addr.substring(split + 1)));
     }
 
-    public static void main(String[] args) throws IOException {
+    public static Connection buildSql(String dbPath) {
+        String url = "jdbc:sqlite:" + dbPath;
+        SQLiteDataSource dc = new SQLiteDataSource();
+        dc.setUrl(url);
+        try {
+            Connection conn = dc.getConnection();
+            conn.setAutoCommit(true);
+            return conn;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static Pricer buildPricer(Args a) {
+        boolean fixedPrices = a.hasArg("quota-prices");
+        if (! fixedPrices)
+            return new LinearPricer(new Natural(1024 * 1024 * 1024L / 50));
+
+         List<Natural> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
+                .map(Long::parseLong)
+                .map(g -> g * GIGABYTE)
+                 .map(Natural::new)
+                .collect(Collectors.toList());
+
+         List<Natural> prices = Arrays.stream(a.getArg("quota-prices", "0,500,5000").split(","))
+                .map(Long::parseLong)
+                 .map(Natural::new)
+                .collect(Collectors.toList());
+
+         if (prices.size() != allowedQuotas.size())
+             throw new IllegalStateException("Number of prices != number of quotas!");
+         Map<Natural, Natural> bytesToPrice = new HashMap<>();
+         for (int i=0; i < prices.size(); i++)
+             bytesToPrice.put(allowedQuotas.get(i), prices.get(i));
+         return new FixedPricer(bytesToPrice);
+    }
+
+    public static void main(String[] args) throws Exception {
         Main.initCrypto();
         Args a = Args.parse(args);
 
         String stripe_secret_key = a.getArg("stripe-secret");
         Bank bank = new StripeProcessor(stripe_secret_key);
-        Natural bytesPerCent = new Natural(1024 * 1024 * 1024L / 50);
-        Natural minQuota = new Natural(a.getLong("min-quota", 10 * GIGABYTE));
         Natural minPayment = new Natural(a.getLong("min-payment", 500));
         Natural defaultFreeQuota = new Natural(a.getLong("free-quota", 100 * 1024*1024L));
         int maxUsers = a.getInt("max-users");
@@ -95,8 +133,11 @@ public class Server {
                 .map(Long::parseLong)
                 .map(g -> g * GIGABYTE)
                 .collect(Collectors.toSet());
-        PaymentState state = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank,
-                defaultFreeQuota, maxUsers, allowedQuotas);
+
+        Connection sqlConn = buildSql(a.getArg("payment-store-sql-file", "payments-store.sql"));
+        PaymentStore store = new SqlPaymentStore(sqlConn);
+        Pricer pricer = buildPricer(a);
+        PaymentState state = new PaymentState(store, pricer, minPayment, bank, defaultFreeQuota, maxUsers, allowedQuotas);
 
         JavaPoster poster = new JavaPoster(new URL("http://" + a.getArg("peergos-address")));
         ContentAddressedStorage.HTTP dht = new ContentAddressedStorage.HTTP(poster, true);

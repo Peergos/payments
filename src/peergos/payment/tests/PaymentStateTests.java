@@ -11,6 +11,7 @@ import java.util.stream.*;
 public class PaymentStateTests {
 
     private static final long GIGABYTE = 1024*1024*1024L;
+    private static final Natural freeQuota = new Natural(100 * 1024 * 1204);
     private static final Set<Long> allowedQuotas = Stream.of(0L, 5*GIGABYTE, 7*GIGABYTE, 10*GIGABYTE).collect(Collectors.toSet());
 
     private static class AcceptAll implements Bank {
@@ -35,7 +36,7 @@ public class PaymentStateTests {
         @Override
         public CustomerResult createCustomer() {
             String id = rndString();
-            return new CustomerResult(id, "{\"id\":\""+id+"\"}");
+            return new CustomerResult(id);
         }
 
         @Override
@@ -57,13 +58,20 @@ public class PaymentStateTests {
         }
     }
 
+    private static PaymentState buildPaymentState(Bank bank, Pricer pricer) {
+        Natural minPayment = new Natural(500);
+        return new PaymentState(new SqlPaymentStore(Server.buildSql(":memory:")), pricer, minPayment, bank, freeQuota, 10, allowedQuotas);
+    }
+
+    private static PaymentState buildPaymentState(Bank bank) {
+        Natural bytesPerCent = new Natural(GIGABYTE / 100);
+        LinearPricer pricer = new LinearPricer(bytesPerCent);
+        return buildPaymentState(bank, pricer);
+    }
+
     @Test
     public void paymentStateEvolution() {
-        Natural bytesPerCent = new Natural(GIGABYTE / 100);
-        Natural minQuota = new Natural(5 * GIGABYTE);
-        Natural minPayment = new Natural(500);
-        Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, new AcceptAll(), freeQuota, 10, allowedQuotas);
+        PaymentState global = buildPaymentState(new AcceptAll());
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
@@ -75,12 +83,8 @@ public class PaymentStateTests {
 
     @Test
     public void idempotent() {
-        Natural bytesPerCent = new Natural(GIGABYTE / 100);
-        Natural minQuota = new Natural(5 * GIGABYTE);
-        Natural minPayment = new Natural(500);
         AcceptAll bank = new AcceptAll();
-        Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, freeQuota, 10, allowedQuotas);
+        PaymentState global = buildPaymentState(bank);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
@@ -98,11 +102,8 @@ public class PaymentStateTests {
 
     @Test
     public void freeLevel() {
-        Natural bytesPerCent = new Natural(GIGABYTE / 100);
-        Natural minQuota = new Natural(5 * GIGABYTE);
-        Natural minPayment = new Natural(500);
         AcceptAll bank = new AcceptAll();
-        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, new Natural(100*1024*1204), 10, allowedQuotas);
+        PaymentState global = buildPaymentState(bank);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         Natural freeSpace = new Natural(5 * GIGABYTE);
@@ -119,12 +120,8 @@ public class PaymentStateTests {
 
     @Test
     public void chargeOnExpiry() {
-        Natural bytesPerCent = new Natural(GIGABYTE / 100);
-        Natural minQuota = new Natural(5 * GIGABYTE);
-        Natural minPayment = new Natural(500);
         AcceptAll bank = new AcceptAll();
-        Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, freeQuota, 10, allowedQuotas);
+        PaymentState global = buildPaymentState(bank);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
@@ -144,12 +141,8 @@ public class PaymentStateTests {
 
     @Test
     public void failAndRecover() {
-        Natural bytesPerCent = new Natural(GIGABYTE / 100);
-        Natural minQuota = new Natural(5 * GIGABYTE);
-        Natural minPayment = new Natural(500);
         AcceptAll bank = new AcceptAll();
-        Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, freeQuota, 10, allowedQuotas);
+        PaymentState global = buildPaymentState(bank);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
@@ -177,11 +170,9 @@ public class PaymentStateTests {
     @Test
     public void increaseQuotaAndTakePayment() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
-        Natural minQuota = new Natural(5 * GIGABYTE);
-        Natural minPayment = new Natural(500);
+        LinearPricer pricer = new LinearPricer(bytesPerCent);
         AcceptAll bank = new AcceptAll();
-        Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, freeQuota, 10, allowedQuotas);
+        PaymentState global = buildPaymentState(bank, pricer);
         String username = "bob";
         Natural desiredQuota = new Natural(5 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
@@ -195,19 +186,17 @@ public class PaymentStateTests {
         Assert.assertTrue("Quota increased", newQuota == increasedQuota.val + freeQuota.val);
         List<PaymentResult> payments = bank.getPayments();
         Assert.assertTrue("Correct number of payments ", payments.size() == 2);
-        Assert.assertTrue("First payment is for 5GiB", payments.get(0).amount.equals(global.convertBytesToCents(desiredQuota)));
+        Assert.assertTrue("First payment is for 5GiB", payments.get(0).amount.equals(pricer.convertBytesToCents(desiredQuota)));
         Assert.assertTrue("Second payment is for 5GiB",
-                payments.get(1).amount.equals(global.convertBytesToCents(increasedQuota.minus(desiredQuota))));
+                payments.get(1).amount.equals(pricer.convertBytesToCents(increasedQuota.minus(desiredQuota))));
     }
 
     @Test
     public void decreaseQuotaAndTakePayment() {
         Natural bytesPerCent = new Natural(GIGABYTE / 100);
-        Natural minQuota = new Natural(1 * GIGABYTE);
-        Natural minPayment = new Natural(500);
+        LinearPricer pricer = new LinearPricer(bytesPerCent);
         AcceptAll bank = new AcceptAll();
-        Natural freeQuota = new Natural(100 * 1024 * 1204);
-        PaymentState global = new PaymentState(new RamPaymentStore(), bytesPerCent, minQuota, minPayment, bank, freeQuota, 10, allowedQuotas);
+        PaymentState global = buildPaymentState(bank, pricer);
         String username = "bob";
         Natural desiredQuota = new Natural(10 * GIGABYTE);
         LocalDateTime now = LocalDateTime.now();
@@ -222,8 +211,8 @@ public class PaymentStateTests {
         Assert.assertTrue("Quota decreased", newQuota == decreasedQuota.val + freeQuota.val);
         List<PaymentResult> payments = bank.getPayments();
         Assert.assertTrue("Correct number of payments ", payments.size() == 2);
-        Assert.assertTrue("First payment is for 10GiB", payments.get(0).amount.equals(global.convertBytesToCents(desiredQuota)));
-        Assert.assertTrue("Second payment is for 7GiB", payments.get(1).amount.equals(global.convertBytesToCents(decreasedQuota)));
+        Assert.assertTrue("First payment is for 10GiB", payments.get(0).amount.equals(pricer.convertBytesToCents(desiredQuota)));
+        Assert.assertTrue("Second payment is for 7GiB", payments.get(1).amount.equals(pricer.convertBytesToCents(decreasedQuota)));
 
     }
 
