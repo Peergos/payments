@@ -137,7 +137,7 @@ public class StripeProcessor implements Bank {
             return IOUtil.readFully(din, 10*1024);
         } catch (IOException e){
             DataInputStream din = new DataInputStream(conn.getErrorStream());
-            String body = new String(IOUtil.readFully(din, 4096));
+            String body = new String(IOUtil.readFully(din, 20*1024));
             if (conn != null)
                 conn.disconnect();
             Map resp = (Map) JSONParser.parse(body);

@@ -1,5 +1,6 @@
 const urlParams = new URLSearchParams(window.location.search);
 const clientSecret = urlParams.get('client_secret');
+const stripePublic = urlParams.get('stripe_public');
 
 var stripeElements = function(publicKey, setupIntent) {
   var stripe = Stripe(publicKey);
@@ -93,4 +94,4 @@ var orderComplete = function(stripe, clientSecret) {
   });
 };
 
-stripeElements("pk_test_hqdmsGnYDJ3haZzsg0lrUDAA", {client_secret:clientSecret});
+stripeElements(stripePublic, {client_secret:clientSecret});

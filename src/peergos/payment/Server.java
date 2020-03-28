@@ -79,6 +79,8 @@ public class Server {
             addr = addr.substring(7);
         if (addr.startsWith("https://"))
             addr = addr.substring(8);
+        if (addr.contains("/"))
+            addr = addr.substring(0, addr.indexOf("/"));
         int split = addr.indexOf(":");
         return new InetSocketAddress(addr.substring(0, split), Integer.parseInt(addr.substring(split + 1)));
     }
@@ -125,6 +127,7 @@ public class Server {
         Args a = Args.parse(args);
 
         String stripe_secret_key = a.getArg("stripe-secret");
+        String stripe_public_key = a.getArg("stripe-public");
         Bank bank = new StripeProcessor(stripe_secret_key);
         Natural minPayment = new Natural(a.getLong("min-payment", 500));
         Natural defaultFreeQuota = new Natural(a.getLong("free-quota", 100 * 1024*1024L));
@@ -144,7 +147,7 @@ public class Server {
         HTTPCoreNode core = new HTTPCoreNode(poster);
         Server daemon = new Server(state, dht, core);
 
-        String publicUrl = a.getArg("public-api-address", "http://localhost:7000");
+        String publicUrl = a.getArg("public-api-address", "http://localhost:7000") + "/addcard.html?stripe_public=" + stripe_public_key;
         InetSocketAddress publicApi = parseAddress(publicUrl);
         InetSocketAddress privateApi = parseAddress(a.getArg("private-api-address", "http://localhost:6000"));
         Optional<Path> webroot = a.hasArg("webroot") ?

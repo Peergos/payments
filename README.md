@@ -2,11 +2,11 @@
 A payment processor for a Peergos storage server
 
 To run use
-> java -jar PaymentServer.jar -peergos-address localhost:8000 -max-users 10 -stripe-secret $secret
+> java -jar PaymentServer.jar -peergos-address localhost:8000 -max-users 10 -stripe-secret $secret -stripe-public pk_test_hqdmsGnYDJ3haZzsg0lrUDAA
 
 # Testing
 To run during testing use
-> java -jar PaymentServer.jar -webroot assets -webcache false -peergos-address localhost:8000 -max-users 10 -stripe-secret $secret
+> java -jar PaymentServer.jar -webroot assets -webcache false -peergos-address localhost:8000 -max-users 10 -stripe-secret $secret -stripe-public pk_test_hqdmsGnYDJ3haZzsg0lrUDAA
 
 There are test card numbers here:
 
