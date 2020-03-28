@@ -15,7 +15,9 @@ public class FileHandler extends StaticHandler
     public Asset getAsset(String resourcePath) throws IOException {
         String stem = resourcePath.startsWith("/")  ?  resourcePath.substring(1) : resourcePath;
         Path fullPath = root.resolve(stem);
+        checkPath(root, fullPath);
         byte[] bytes = readResource(new FileInputStream(fullPath.toFile()), isGzip());
         return new Asset(bytes);
     }
+
 }

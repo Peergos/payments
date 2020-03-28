@@ -3,6 +3,7 @@ package peergos.payment.http;
 import com.sun.net.httpserver.*;
 
 import java.io.*;
+import java.nio.file.Path;
 import java.security.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -111,6 +112,18 @@ public abstract class StaticHandler implements HttpHandler
             System.err.println("Error retrieving: " + path);
             httpExchange.sendResponseHeaders(404, 0);
             httpExchange.getResponseBody().close();
+        }
+    }
+
+    public static void checkPath(Path root, Path resourcePath) {
+        try {
+            String rootCanonicalPath = root.toFile().getCanonicalPath();
+            String resourceCanonicalPath = resourcePath.toFile().getCanonicalPath();
+            if (! resourceCanonicalPath.startsWith(rootCanonicalPath)) {
+                throw new IllegalStateException("Invalid resourcePath: " + resourcePath);
+            }
+        } catch(IOException ioe) {
+            throw new IllegalStateException("Invalid resourcePath: " + resourcePath);
         }
     }
 
