@@ -13,9 +13,9 @@ public abstract class StaticHandler implements HttpHandler
     private final boolean isGzip;
     private final String peergosUrl;
 
-    public StaticHandler(boolean isGzip, String peerogsUrl) {
+    public StaticHandler(boolean isGzip, String peergosUrl) {
         this.isGzip = isGzip;
-        this.peergosUrl = peerogsUrl;
+        this.peergosUrl = peergosUrl;
     }
 
     public abstract Asset getAsset(String resourcePath) throws IOException;
