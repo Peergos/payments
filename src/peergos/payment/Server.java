@@ -148,7 +148,7 @@ public class Server {
         Server daemon = new Server(state, dht, core);
 
         String publicUrl = a.getArg("public-api-address", "http://localhost:7000") + "/addcard.html?stripe_public=" + stripe_public_key;
-        InetSocketAddress publicApi = parseAddress(publicUrl);
+        InetSocketAddress publicListener = parseAddress(a.getArg("public-listener-address", publicUrl));
         InetSocketAddress privateApi = parseAddress(a.getArg("private-api-address", "http://localhost:6000"));
         Optional<Path> webroot = a.hasArg("webroot") ?
                 Optional.of(Paths.get(a.getArg("webroot"))) :
@@ -156,6 +156,6 @@ public class Server {
         boolean useWebAssetCache = a.getBoolean("webcache", true);
         String publicPeergosUrl = a.getArg("public-peergos-url", "http://localhost:8000");
 
-        daemon.initAndStart(publicUrl, publicApi, privateApi, webroot, publicPeergosUrl, useWebAssetCache);
+        daemon.initAndStart(publicUrl, publicListener, privateApi, webroot, publicPeergosUrl, useWebAssetCache);
     }
 }
