@@ -72,8 +72,6 @@ public class Server {
         publicServer.start();
     }
 
-    private static final long GIGABYTE = 1024*1024*1024L;
-
     private static InetSocketAddress parseAddress(String addr) {
         if (addr.startsWith("http://"))
             addr = addr.substring(7);
@@ -83,43 +81,6 @@ public class Server {
             addr = addr.substring(0, addr.indexOf("/"));
         int split = addr.indexOf(":");
         return new InetSocketAddress(addr.substring(0, split), Integer.parseInt(addr.substring(split + 1)));
-    }
-
-    public static Connection buildSql(String dbPath) {
-        String url = "jdbc:sqlite:" + dbPath;
-        SQLiteDataSource dc = new SQLiteDataSource();
-        dc.setUrl(url);
-        try {
-            Connection conn = dc.getConnection();
-            conn.setAutoCommit(true);
-            return conn;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static Pricer buildPricer(Args a) {
-        boolean fixedPrices = a.hasArg("quota-prices");
-        if (! fixedPrices)
-            return new LinearPricer(new Natural(1024 * 1024 * 1024L / 50));
-
-         List<Natural> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
-                .map(Long::parseLong)
-                .map(g -> g * GIGABYTE)
-                 .map(Natural::new)
-                .collect(Collectors.toList());
-
-         List<Natural> prices = Arrays.stream(a.getArg("quota-prices", "0,500,5000").split(","))
-                .map(Long::parseLong)
-                 .map(Natural::new)
-                .collect(Collectors.toList());
-
-         if (prices.size() != allowedQuotas.size())
-             throw new IllegalStateException("Number of prices != number of quotas!");
-         Map<Natural, Natural> bytesToPrice = new HashMap<>();
-         for (int i=0; i < prices.size(); i++)
-             bytesToPrice.put(allowedQuotas.get(i), prices.get(i));
-         return new FixedPricer(bytesToPrice);
     }
 
     public static void main(String[] args) throws Exception {
@@ -134,12 +95,12 @@ public class Server {
         int maxUsers = a.getInt("max-users");
         Set<Long> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
                 .map(Long::parseLong)
-                .map(g -> g * GIGABYTE)
+                .map(g -> g * Builder.GIGABYTE)
                 .collect(Collectors.toSet());
 
-        Connection sqlConn = buildSql(a.getArg("payment-store-sql-file", "payments-store.sql"));
+        Connection sqlConn = Builder.buildSql(a.getArg("payment-store-sql-file", "payments-store.sql"));
         PaymentStore store = new SqlPaymentStore(sqlConn);
-        Pricer pricer = buildPricer(a);
+        Pricer pricer = Builder.buildPricer(a);
         PaymentState state = new PaymentState(store, pricer, minPayment, bank, defaultFreeQuota, maxUsers, allowedQuotas);
 
         JavaPoster poster = new JavaPoster(new URL("http://" + a.getArg("peergos-address")));
