@@ -85,26 +85,34 @@ public class Server {
         return new InetSocketAddress(addr.substring(0, split), Integer.parseInt(addr.substring(split + 1)));
     }
 
-    private static void startPeriodicPaymentProcessor(PaymentState state, LocalTime at) {
+    private static void startPeriodicPaymentProcessor(PaymentState state) {
 
-        Calendar today = Calendar.getInstance();
-        today.set(Calendar.HOUR_OF_DAY, at.getHour());
-        today.set(Calendar.MINUTE, at.getMinute());
-        today.set(Calendar.SECOND, 0);
-
-        TimerTask periodicPaymentTask = new TimerTask() {
-            @Override
-            public void run() {
+        Runnable periodicPaymentTask = () -> {
+            while (true) {
+                int interval = 1000 * 60 * 30; //30 minutes;
+                int run = 1;
                 try {
-                    state.processAll(LocalDateTime.now());
-                } catch (Throwable t) { //must catch, else timer will exit
-                    LOG.log(Level.SEVERE,"Unexpected Exception occurred", t);
+                    LOG.info(run + ") Starting Periodic payment run. User count: " + state.userCount());
+                    long start = System.currentTimeMillis();
+                    Pair<Integer, Integer> stats = state.processAll(null);
+                    long end = System.currentTimeMillis();
+                    long duration = end - start;
+                    long minutes = (duration / 1000) / 60;
+                    long seconds = (duration / 1000) % 60;
+                    LOG.info(run + ") Completed Periodic payment run. Duration: " + minutes + " m " + seconds + " s" +
+                            " success count: " + stats.left + " failure count: " + stats.right);
+                } catch (Throwable t) {
+                    LOG.log(Level.SEVERE, "Unexpected Exception occurred", t);
+                    interval = 1000 * 60; // try again after failure, but wait a bit in case of network failure
                 }
+                run++;
+                try {
+                    Thread.sleep(interval);
+                } catch (InterruptedException ie) { }
             }
         };
-        Timer timer = new Timer();
-        //if already past 'at' time then will trigger immediately
-        timer.schedule(periodicPaymentTask, today.getTime(), TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS));
+        Thread process = new Thread(periodicPaymentTask);
+        process.start();
     }
 
     public static void main(String[] args) throws Exception {
@@ -143,7 +151,6 @@ public class Server {
 
         daemon.initAndStart(publicUrl, publicListener, privateApi, webroot, publicPeergosUrl, useWebAssetCache);
 
-        String dailyPaymentScheduledTime = a.getArg("daily-payment-scheduled-time", "14:00");
-        startPeriodicPaymentProcessor(state, DateUtil.toTime(dailyPaymentScheduledTime));
+        startPeriodicPaymentProcessor(state);
     }
 }

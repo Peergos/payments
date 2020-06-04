@@ -132,23 +132,27 @@ public class PaymentState {
         processUser(username, now);
     }
 
-    public synchronized void processAll(LocalDateTime now) {
+    public synchronized Pair<Integer, Integer> processAll(LocalDateTime now) {
+        int successCount = 0;
+        int failureCount = 0;
         for (String username : getAllUsernames()) {
             try {
                 int retries = 0;
-                while (!processUser(username, now)) {
+                while (! processUser(username, now == null ? LocalDateTime.now() : now)) {
                     try {
                         if (retries > 3) {
-                            break;
+                            throw new IllegalStateException("Maximum retry limit exceeded!");
                         }
                         Thread.sleep(++retries * 2 * 1000);
-                    } catch (InterruptedException ie) {
-                    }
+                    } catch (InterruptedException ie) {}
                 }
+                successCount++;
             } catch (Throwable err) {
                 LOG.log(Level.SEVERE,"Unable to process user:" + username, err);
+                failureCount++;
             }
         }
+        return new Pair<>(successCount, failureCount);
     }
 
     public synchronized long getCurrentQuota(String username) {
