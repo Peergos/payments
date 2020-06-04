@@ -140,6 +140,7 @@ public class PaymentState {
                 int retries = 0;
                 while (! processUser(username, now == null ? LocalDateTime.now() : now)) {
                     if (retries > 3) {
+                        failureCount++;
                         throw new IllegalStateException("Maximum retry limit exceeded!");
                     }
                     try {
@@ -149,7 +150,6 @@ public class PaymentState {
                 successCount++;
             } catch (Throwable err) {
                 LOG.log(Level.SEVERE,"Unable to process user:" + username, err);
-                failureCount++;
             }
         }
         return new Pair<>(successCount, failureCount);
