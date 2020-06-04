@@ -16,6 +16,8 @@ import java.io.*;
 import java.net.*;
 import java.nio.file.*;
 import java.sql.*;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.*;
@@ -83,6 +85,28 @@ public class Server {
         return new InetSocketAddress(addr.substring(0, split), Integer.parseInt(addr.substring(split + 1)));
     }
 
+    private static void startPeriodicPaymentProcessor(PaymentState state, LocalTime at) {
+
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, at.getHour());
+        today.set(Calendar.MINUTE, at.getMinute());
+        today.set(Calendar.SECOND, 0);
+
+        TimerTask periodicPaymentTask = new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    state.processAll(LocalDateTime.now());
+                } catch (Throwable t) { //must catch, else timer will exit
+                    LOG.log(Level.SEVERE,"Unexpected Exception occurred", t);
+                }
+            }
+        };
+        Timer timer = new Timer();
+        //if already past 'at' time then will trigger immediately
+        timer.schedule(periodicPaymentTask, today.getTime(), TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS));
+    }
+
     public static void main(String[] args) throws Exception {
         Main.initCrypto();
         Args a = Args.parse(args);
@@ -118,5 +142,8 @@ public class Server {
         String publicPeergosUrl = a.getArg("public-peergos-url", "http://localhost:8000");
 
         daemon.initAndStart(publicUrl, publicListener, privateApi, webroot, publicPeergosUrl, useWebAssetCache);
+
+        String dailyPaymentScheduledTime = a.getArg("daily-payment-scheduled-time", "14:00");
+        startPeriodicPaymentProcessor(state, DateUtil.toTime(dailyPaymentScheduledTime));
     }
 }

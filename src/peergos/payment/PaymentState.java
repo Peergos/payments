@@ -5,8 +5,11 @@ import peergos.shared.storage.*;
 
 import java.time.*;
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class PaymentState {
+    private static final Logger LOG = Logger.getLogger("NULL_FORMAT");
 
     private final PaymentStore userStates;
     private final Pricer pricer;
@@ -79,7 +82,8 @@ public class PaymentState {
     /**
      *  Take any payments and expire any old quota
      */
-    private void processUser(String username, LocalDateTime now) {
+    private synchronized boolean processUser(String username, LocalDateTime now) {
+        boolean takenPayment = false;
         Natural desiredQuotaBytes = userStates.getDesiredQuota(username);
         if (now.isAfter(userStates.getQuotaExpiry(username).minusSeconds(1)))
             userStates.setCurrentQuota(username, Natural.ZERO);
@@ -94,7 +98,7 @@ public class PaymentState {
                     userStates.setCurrentBalance(username, currentBalanceCents.minus(toPay));
                     userStates.setCurrentQuota(username, desiredQuotaBytes);
                     userStates.setQuotaExpiry(username, now.plusMonths(1));
-                    return;
+                    return true;
                 }
             }
             if (currentQuotaBytes.val < desiredQuotaBytes.val) {
@@ -108,6 +112,7 @@ public class PaymentState {
                         userStates.setCurrentBalance(username, toCharge.minus(remaining));
                         userStates.setCurrentQuota(username, desiredQuotaBytes);
                         userStates.setQuotaExpiry(username, now.plusMonths(1));
+                        takenPayment = true;
                     } else {
                         userStates.setError(username, paymentResult.failureError.get());
                     }
@@ -116,6 +121,7 @@ public class PaymentState {
                 }
             }
         }
+        return takenPayment;
     }
 
     public synchronized void setDesiredQuota(String username, Natural quota, LocalDateTime now) {
@@ -128,7 +134,20 @@ public class PaymentState {
 
     public synchronized void processAll(LocalDateTime now) {
         for (String username : getAllUsernames()) {
-            processUser(username, now);
+            try {
+                int retries = 0;
+                while (!processUser(username, now)) {
+                    try {
+                        if (retries > 3) {
+                            break;
+                        }
+                        Thread.sleep(++retries * 2 * 1000);
+                    } catch (InterruptedException ie) {
+                    }
+                }
+            } catch (Throwable err) {
+                LOG.log(Level.SEVERE,"Unable to process user:" + username, err);
+            }
         }
     }
 
