@@ -82,8 +82,7 @@ public class PaymentState {
     /**
      *  Take any payments and expire any old quota
      */
-    private synchronized boolean processUser(String username, LocalDateTime now) {
-        boolean takenPayment = false;
+    private synchronized void processUser(String username, LocalDateTime now) {
         Natural desiredQuotaBytes = userStates.getDesiredQuota(username);
         if (now.isAfter(userStates.getQuotaExpiry(username).minusSeconds(1)))
             userStates.setCurrentQuota(username, Natural.ZERO);
@@ -98,7 +97,7 @@ public class PaymentState {
                     userStates.setCurrentBalance(username, currentBalanceCents.minus(toPay));
                     userStates.setCurrentQuota(username, desiredQuotaBytes);
                     userStates.setQuotaExpiry(username, now.plusMonths(1));
-                    return true;
+                    return;
                 }
             }
             if (currentQuotaBytes.val < desiredQuotaBytes.val) {
@@ -112,7 +111,6 @@ public class PaymentState {
                         userStates.setCurrentBalance(username, toCharge.minus(remaining));
                         userStates.setCurrentQuota(username, desiredQuotaBytes);
                         userStates.setQuotaExpiry(username, now.plusMonths(1));
-                        takenPayment = true;
                     } else {
                         userStates.setError(username, paymentResult.failureError.get());
                     }
@@ -121,7 +119,6 @@ public class PaymentState {
                 }
             }
         }
-        return takenPayment;
     }
 
     public synchronized void setDesiredQuota(String username, Natural quota, LocalDateTime now) {
@@ -137,19 +134,11 @@ public class PaymentState {
         int failureCount = 0;
         for (String username : getAllUsernames()) {
             try {
-                int retries = 0;
-                while (! processUser(username, now == null ? LocalDateTime.now() : now)) {
-                    if (retries > 3) {
-                        failureCount++;
-                        throw new IllegalStateException("Maximum retry limit exceeded!");
-                    }
-                    try {
-                        Thread.sleep(++retries * 2 * 1000);
-                    } catch (InterruptedException ie) {}
-                }
+                processUser(username, now == null ? LocalDateTime.now() : now);
                 successCount++;
             } catch (Throwable err) {
                 LOG.log(Level.SEVERE,"Unable to process user:" + username, err);
+                failureCount++;
             }
         }
         return new Pair<>(successCount, failureCount);
