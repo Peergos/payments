@@ -82,7 +82,8 @@ public class PaymentState {
     /**
      *  Take any payments and expire any old quota
      */
-    private synchronized void processUser(String username, LocalDateTime now) {
+    private synchronized boolean processUser(String username, LocalDateTime now) {
+        boolean processed = true;
         Natural desiredQuotaBytes = userStates.getDesiredQuota(username);
         if (now.isAfter(userStates.getQuotaExpiry(username).minusSeconds(1)))
             userStates.setCurrentQuota(username, Natural.ZERO);
@@ -97,7 +98,7 @@ public class PaymentState {
                     userStates.setCurrentBalance(username, currentBalanceCents.minus(toPay));
                     userStates.setCurrentQuota(username, desiredQuotaBytes);
                     userStates.setQuotaExpiry(username, now.plusMonths(1));
-                    return;
+                    return true;
                 }
             }
             if (currentQuotaBytes.val < desiredQuotaBytes.val) {
@@ -113,12 +114,15 @@ public class PaymentState {
                         userStates.setQuotaExpiry(username, now.plusMonths(1));
                     } else {
                         userStates.setError(username, paymentResult.failureError.get());
+                        processed = false;
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
+                    processed = false;
                 }
             }
         }
+        return processed;
     }
 
     public synchronized void setDesiredQuota(String username, Natural quota, LocalDateTime now) {
@@ -134,8 +138,11 @@ public class PaymentState {
         int failureCount = 0;
         for (String username : getAllUsernames()) {
             try {
-                processUser(username, now == null ? LocalDateTime.now() : now);
-                successCount++;
+                if (processUser(username, now == null ? LocalDateTime.now() : now)) {
+                    successCount++;
+                } else {
+                    failureCount++;
+                }
             } catch (Throwable err) {
                 LOG.log(Level.SEVERE,"Unable to process user:" + username, err);
                 failureCount++;
