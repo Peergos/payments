@@ -139,10 +139,10 @@ public class PaymentState {
             try {
                 int retries = 0;
                 while (! processUser(username, now == null ? LocalDateTime.now() : now)) {
+                    if (retries > 3) {
+                        throw new IllegalStateException("Maximum retry limit exceeded!");
+                    }
                     try {
-                        if (retries > 3) {
-                            throw new IllegalStateException("Maximum retry limit exceeded!");
-                        }
                         Thread.sleep(++retries * 2 * 1000);
                     } catch (InterruptedException ie) {}
                 }
