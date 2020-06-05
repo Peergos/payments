@@ -92,16 +92,16 @@ public class Server {
 
         Runnable periodicPaymentTask = () -> {
             while (true) {
+                LocalDateTime now = LocalDateTime.now();
                 try {
                     LOG.info("Starting Periodic payment run. User count: " + state.userCount());
-                    Triple<Integer, Integer, Integer> stats = state.processAll(LocalDateTime.now());
+                    Triple<Integer, Integer, Integer> stats = state.processAll(now);
                     LOG.info("Completed Periodic payment run. " + " success count: " + stats.left +
                             " failure count: " + stats.middle + " exception count: " + stats.right);
                 } catch (Throwable t) {
                     LOG.log(Level.SEVERE, "Unexpected Exception occurred", t);
                 }
                 try {
-                    LocalDateTime now = LocalDateTime.now();
                     Duration nextInvocation = Duration.between(now, LocalDateTime.of(now.toLocalDate().plusDays(1), atTime));
                     Thread.sleep(nextInvocation.toMillis());
                 } catch (InterruptedException ie) { }
