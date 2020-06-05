@@ -2,6 +2,7 @@ package peergos.payment;
 
 import peergos.payment.util.*;
 import peergos.shared.storage.*;
+import peergos.shared.util.Triple;
 
 import java.time.*;
 import java.util.*;
@@ -133,22 +134,23 @@ public class PaymentState {
         processUser(username, now);
     }
 
-    public synchronized Pair<Integer, Integer> processAll(LocalDateTime now) {
+    public synchronized Triple<Integer, Integer, Integer> processAll(LocalDateTime now) {
         int successCount = 0;
         int failureCount = 0;
+        int exceptionCount = 0;
         for (String username : getAllUsernames()) {
             try {
-                if (processUser(username, now == null ? LocalDateTime.now() : now)) {
+                if (processUser(username, now)) {
                     successCount++;
                 } else {
                     failureCount++;
                 }
             } catch (Throwable err) {
                 LOG.log(Level.SEVERE,"Unable to process user:" + username, err);
-                failureCount++;
+                exceptionCount++;
             }
         }
-        return new Pair<>(successCount, failureCount);
+        return new Triple<>(successCount, failureCount, exceptionCount);
     }
 
     public synchronized long getCurrentQuota(String username) {

@@ -11,11 +11,14 @@ import peergos.server.storage.admin.*;
 import peergos.shared.corenode.*;
 import peergos.shared.storage.*;
 import peergos.shared.user.*;
+import peergos.shared.util.Triple;
 
 import java.io.*;
 import java.net.*;
 import java.nio.file.*;
 import java.sql.*;
+import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
@@ -85,32 +88,33 @@ public class Server {
         return new InetSocketAddress(addr.substring(0, split), Integer.parseInt(addr.substring(split + 1)));
     }
 
-    private static void startPeriodicPaymentProcessor(PaymentState state) {
+    private static void startPeriodicPaymentProcessor(PaymentState state, LocalTime atTime) {
 
         Runnable periodicPaymentTask = () -> {
             while (true) {
-                int interval = 1000 * 60 * 30; //30 minutes;
-                int run = 1;
                 try {
-                    LOG.info(run + ") Starting Periodic payment run. User count: " + state.userCount());
-                    long start = System.currentTimeMillis();
-                    Pair<Integer, Integer> stats = state.processAll(null);
-                    long end = System.currentTimeMillis();
-                    long duration = end - start;
-                    long minutes = (duration / 1000) / 60;
-                    long seconds = (duration / 1000) % 60;
-                    LOG.info(run + ") Completed Periodic payment run. Duration: " + minutes + " m " + seconds + " s" +
-                            " success count: " + stats.left + " failure count: " + stats.right);
+                    LOG.info("Starting Periodic payment run. User count: " + state.userCount());
+                    Triple<Integer, Integer, Integer> stats = state.processAll(LocalDateTime.now());
+                    LOG.info("Completed Periodic payment run. " + " success count: " + stats.left +
+                            " failure count: " + stats.middle + " exception count: " + stats.right);
                 } catch (Throwable t) {
                     LOG.log(Level.SEVERE, "Unexpected Exception occurred", t);
-                    interval = 1000 * 60; // try again after failure, but wait a bit in case of network failure
                 }
-                run++;
                 try {
-                    Thread.sleep(interval);
+                    LocalDateTime now = LocalDateTime.now();
+                    Duration nextInvocation = Duration.between(now, LocalDateTime.of(now.toLocalDate().plusDays(1), atTime));
+                    Thread.sleep(nextInvocation.toMillis());
                 } catch (InterruptedException ie) { }
             }
         };
+        Duration duration = Duration.between(LocalTime.now(), atTime);
+        if (duration.isNegative()) {
+            duration = Duration.between(LocalDateTime.now(), LocalDateTime.of(LocalDate.now().plusDays(1), atTime));
+        }
+        try {
+            Thread.sleep(duration.toMillis());
+        } catch (InterruptedException ie) { }
+
         Thread process = new Thread(periodicPaymentTask);
         process.start();
     }
@@ -151,6 +155,7 @@ public class Server {
 
         daemon.initAndStart(publicUrl, publicListener, privateApi, webroot, publicPeergosUrl, useWebAssetCache);
 
-        startPeriodicPaymentProcessor(state);
+        String dailyPaymentScheduledTime = a.getArg("daily-payment-scheduled-time", "14:00");
+        startPeriodicPaymentProcessor(state, DateUtil.toTime(dailyPaymentScheduledTime));
     }
 }
