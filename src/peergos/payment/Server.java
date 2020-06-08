@@ -89,32 +89,32 @@ public class Server {
     }
 
     private static void startPeriodicPaymentProcessor(PaymentState state, LocalTime atTime) {
-
+        
         Runnable periodicPaymentTask = () -> {
+            LocalDateTime nextInvocation = LocalDateTime.of(LocalDate.now(), atTime);
+
+            Duration duration = Duration.between(LocalDateTime.now(), nextInvocation);
+            if (duration.isNegative()) {
+                nextInvocation = nextInvocation.plusDays(1);
+            }
             while (true) {
                 LocalDateTime now = LocalDateTime.now();
-                try {
-                    LOG.info("Starting Periodic payment run. User count: " + state.userCount());
-                    Triple<Integer, Integer, Integer> stats = state.processAll(now);
-                    LOG.info("Completed Periodic payment run. " + " success count: " + stats.left +
-                            " failure count: " + stats.middle + " exception count: " + stats.right);
-                } catch (Throwable t) {
-                    LOG.log(Level.SEVERE, "Unexpected Exception occurred", t);
+                if (now.isAfter(nextInvocation)) {
+                    nextInvocation = nextInvocation.plusDays(1);
+                    try {
+                        LOG.info("Starting Periodic payment run. User count: " + state.userCount());
+                        Triple<Integer, Integer, Integer> stats = state.processAll(now);
+                        LOG.info("Completed Periodic payment run. " + " success count: " + stats.left +
+                                " failure count: " + stats.middle + " exception count: " + stats.right);
+                    } catch (Throwable t) {
+                        LOG.log(Level.SEVERE, "Unexpected Exception occurred", t);
+                    }
                 }
                 try {
-                    Duration nextInvocation = Duration.between(now, LocalDateTime.of(now.toLocalDate().plusDays(1), atTime));
-                    Thread.sleep(nextInvocation.toMillis());
+                    Thread.sleep(1000 * 60 * 30);
                 } catch (InterruptedException ie) { }
             }
         };
-        Duration duration = Duration.between(LocalTime.now(), atTime);
-        if (duration.isNegative()) {
-            duration = Duration.between(LocalDateTime.now(), LocalDateTime.of(LocalDate.now().plusDays(1), atTime));
-        }
-        try {
-            Thread.sleep(duration.toMillis());
-        } catch (InterruptedException ie) { }
-
         Thread process = new Thread(periodicPaymentTask);
         process.start();
     }
