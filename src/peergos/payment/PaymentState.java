@@ -2,11 +2,15 @@ package peergos.payment;
 
 import peergos.payment.util.*;
 import peergos.shared.storage.*;
+import peergos.shared.util.Triple;
 
 import java.time.*;
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class PaymentState {
+    private static final Logger LOG = Logger.getLogger("NULL_FORMAT");
 
     private final PaymentStore userStates;
     private final Pricer pricer;
@@ -79,7 +83,8 @@ public class PaymentState {
     /**
      *  Take any payments and expire any old quota
      */
-    private void processUser(String username, LocalDateTime now) {
+    private synchronized boolean processUser(String username, LocalDateTime now) {
+        boolean processed = true;
         Natural desiredQuotaBytes = userStates.getDesiredQuota(username);
         if (now.isAfter(userStates.getQuotaExpiry(username).minusSeconds(1)))
             userStates.setCurrentQuota(username, Natural.ZERO);
@@ -94,7 +99,7 @@ public class PaymentState {
                     userStates.setCurrentBalance(username, currentBalanceCents.minus(toPay));
                     userStates.setCurrentQuota(username, desiredQuotaBytes);
                     userStates.setQuotaExpiry(username, now.plusMonths(1));
-                    return;
+                    return true;
                 }
             }
             if (currentQuotaBytes.val < desiredQuotaBytes.val) {
@@ -110,12 +115,15 @@ public class PaymentState {
                         userStates.setQuotaExpiry(username, now.plusMonths(1));
                     } else {
                         userStates.setError(username, paymentResult.failureError.get());
+                        processed = false;
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
+                    processed = false;
                 }
             }
         }
+        return processed;
     }
 
     public synchronized void setDesiredQuota(String username, Natural quota, LocalDateTime now) {
@@ -126,10 +134,23 @@ public class PaymentState {
         processUser(username, now);
     }
 
-    public synchronized void processAll(LocalDateTime now) {
+    public synchronized Triple<Integer, Integer, Integer> processAll(LocalDateTime now) {
+        int successCount = 0;
+        int failureCount = 0;
+        int exceptionCount = 0;
         for (String username : getAllUsernames()) {
-            processUser(username, now);
+            try {
+                if (processUser(username, now)) {
+                    successCount++;
+                } else {
+                    failureCount++;
+                }
+            } catch (Throwable err) {
+                LOG.log(Level.SEVERE,"Unable to process user:" + username, err);
+                exceptionCount++;
+            }
         }
+        return new Triple<>(successCount, failureCount, exceptionCount);
     }
 
     public synchronized long getCurrentQuota(String username) {

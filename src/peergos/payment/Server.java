@@ -11,11 +11,16 @@ import peergos.server.storage.admin.*;
 import peergos.shared.corenode.*;
 import peergos.shared.storage.*;
 import peergos.shared.user.*;
+import peergos.shared.util.Triple;
 
 import java.io.*;
 import java.net.*;
 import java.nio.file.*;
 import java.sql.*;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.*;
@@ -72,8 +77,6 @@ public class Server {
         publicServer.start();
     }
 
-    private static final long GIGABYTE = 1024*1024*1024L;
-
     private static InetSocketAddress parseAddress(String addr) {
         if (addr.startsWith("http://"))
             addr = addr.substring(7);
@@ -85,41 +88,35 @@ public class Server {
         return new InetSocketAddress(addr.substring(0, split), Integer.parseInt(addr.substring(split + 1)));
     }
 
-    public static Connection buildSql(String dbPath) {
-        String url = "jdbc:sqlite:" + dbPath;
-        SQLiteDataSource dc = new SQLiteDataSource();
-        dc.setUrl(url);
-        try {
-            Connection conn = dc.getConnection();
-            conn.setAutoCommit(true);
-            return conn;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
+    private static void startPeriodicPaymentProcessor(PaymentState state, LocalTime atTime) {
+        
+        Runnable periodicPaymentTask = () -> {
+            LocalDateTime nextInvocation = LocalDateTime.of(LocalDate.now(), atTime);
 
-    private static Pricer buildPricer(Args a) {
-        boolean fixedPrices = a.hasArg("quota-prices");
-        if (! fixedPrices)
-            return new LinearPricer(new Natural(1024 * 1024 * 1024L / 50));
-
-         List<Natural> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
-                .map(Long::parseLong)
-                .map(g -> g * GIGABYTE)
-                 .map(Natural::new)
-                .collect(Collectors.toList());
-
-         List<Natural> prices = Arrays.stream(a.getArg("quota-prices", "0,500,5000").split(","))
-                .map(Long::parseLong)
-                 .map(Natural::new)
-                .collect(Collectors.toList());
-
-         if (prices.size() != allowedQuotas.size())
-             throw new IllegalStateException("Number of prices != number of quotas!");
-         Map<Natural, Natural> bytesToPrice = new HashMap<>();
-         for (int i=0; i < prices.size(); i++)
-             bytesToPrice.put(allowedQuotas.get(i), prices.get(i));
-         return new FixedPricer(bytesToPrice);
+            Duration duration = Duration.between(LocalDateTime.now(), nextInvocation);
+            if (duration.isNegative()) {
+                nextInvocation = nextInvocation.plusDays(1);
+            }
+            while (true) {
+                LocalDateTime now = LocalDateTime.now();
+                if (now.isAfter(nextInvocation)) {
+                    nextInvocation = nextInvocation.plusDays(1);
+                    try {
+                        LOG.info("Starting Periodic payment run. User count: " + state.userCount());
+                        Triple<Integer, Integer, Integer> stats = state.processAll(now);
+                        LOG.info("Completed Periodic payment run. " + " success count: " + stats.left +
+                                " failure count: " + stats.middle + " exception count: " + stats.right);
+                    } catch (Throwable t) {
+                        LOG.log(Level.SEVERE, "Unexpected Exception occurred", t);
+                    }
+                }
+                try {
+                    Thread.sleep(1000 * 60 * 30);
+                } catch (InterruptedException ie) { }
+            }
+        };
+        Thread process = new Thread(periodicPaymentTask);
+        process.start();
     }
 
     public static void main(String[] args) throws Exception {
@@ -134,12 +131,12 @@ public class Server {
         int maxUsers = a.getInt("max-users");
         Set<Long> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
                 .map(Long::parseLong)
-                .map(g -> g * GIGABYTE)
+                .map(g -> g * Builder.GIGABYTE)
                 .collect(Collectors.toSet());
 
-        Connection sqlConn = buildSql(a.getArg("payment-store-sql-file", "payments-store.sql"));
+        Connection sqlConn = Builder.buildSql(a.getArg("payment-store-sql-file", "payments-store.sql"));
         PaymentStore store = new SqlPaymentStore(sqlConn);
-        Pricer pricer = buildPricer(a);
+        Pricer pricer = Builder.buildPricer(a);
         PaymentState state = new PaymentState(store, pricer, minPayment, bank, defaultFreeQuota, maxUsers, allowedQuotas);
 
         JavaPoster poster = new JavaPoster(new URL("http://" + a.getArg("peergos-address")));
@@ -157,5 +154,8 @@ public class Server {
         String publicPeergosUrl = a.getArg("public-peergos-url", "http://localhost:8000");
 
         daemon.initAndStart(publicUrl, publicListener, privateApi, webroot, publicPeergosUrl, useWebAssetCache);
+
+        String dailyPaymentScheduledTime = a.getArg("daily-payment-scheduled-time", "14:00");
+        startPeriodicPaymentProcessor(state, DateUtil.toTime(dailyPaymentScheduledTime));
     }
 }
