@@ -26,7 +26,7 @@ public class SqlPaymentStore implements PaymentStore {
     }
 
     private String createTableStatement() {
-        return "CREATE TABLE IF NOT EXISTS users " +
+        return "CREATE TABLE IF NOT EXISTS quotas " +
                 "(name VARCHAR(32) PRIMARY KEY NOT NULL, " +
                 "customerid text, " +
                 "free "+sqlInteger()+" NOT NULL CHECK (free >= 0), " +
@@ -65,7 +65,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public long userCount() {
         try (Connection conn = getConnection();
-             PreparedStatement count = conn.prepareStatement("SELECT COUNT(*) FROM users;")) {
+             PreparedStatement count = conn.prepareStatement("SELECT COUNT(*) FROM quotas;")) {
             ResultSet resultSet = count.executeQuery();
             if (! resultSet.next())
                 return 0;
@@ -79,7 +79,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public boolean hasUser(String username) {
         try (Connection conn = getConnection();
-             PreparedStatement count = conn.prepareStatement("SELECT COUNT(*) FROM users where name = ?;")) {
+             PreparedStatement count = conn.prepareStatement("SELECT COUNT(*) FROM quotas where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
             if (! resultSet.next())
@@ -94,7 +94,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public List<String> getAllUsernames() {
         try (Connection conn = getConnection();
-             PreparedStatement select = conn.prepareStatement("SELECT name FROM users;")) {
+             PreparedStatement select = conn.prepareStatement("SELECT name FROM quotas;")) {
             ResultSet rs = select.executeQuery();
             List<String> results = new ArrayList<>();
             while (rs.next()) {
@@ -113,7 +113,7 @@ public class SqlPaymentStore implements PaymentStore {
         if (hasUser(username))
             return;
         try (Connection conn = getConnection();
-             PreparedStatement insert = conn.prepareStatement("INSERT INTO users (name, free, desired, quota, expiry, balance) VALUES(?, ?, ?, ?, ?, ?);")) {
+             PreparedStatement insert = conn.prepareStatement("INSERT INTO quotas (name, free, desired, quota, expiry, balance) VALUES(?, ?, ?, ?, ?, ?);")) {
             insert.setString(1, username);
             insert.setLong(2, freeSpace.val);
             insert.setLong(3, 0);
@@ -130,7 +130,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public void setCustomer(String username, CustomerResult customer) {
         try (Connection conn = getConnection();
-             PreparedStatement insert = conn.prepareStatement("UPDATE users SET customerid = ? WHERE name = ?;")) {
+             PreparedStatement insert = conn.prepareStatement("UPDATE quotas SET customerid = ? WHERE name = ?;")) {
             insert.setString(1, customer.id);
             insert.setString(2, username);
             insert.execute();
@@ -143,7 +143,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public CustomerResult getCustomer(String username) {
         try (Connection conn = getConnection();
-             PreparedStatement count = conn.prepareStatement("SELECT customerid FROM users where name = ?;")) {
+             PreparedStatement count = conn.prepareStatement("SELECT customerid FROM quotas where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
             if (! resultSet.next())
@@ -161,7 +161,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public void setDesiredQuota(String username, Natural quota, LocalDateTime now) {
         try (Connection conn = getConnection();
-             PreparedStatement insert = conn.prepareStatement("UPDATE users SET desired = ? WHERE name = ?;")) {
+             PreparedStatement insert = conn.prepareStatement("UPDATE quotas SET desired = ? WHERE name = ?;")) {
             insert.setLong(1, quota.val);
             insert.setString(2, username);
             insert.execute();
@@ -174,7 +174,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public Natural getDesiredQuota(String username) {
         try (Connection conn = getConnection();
-             PreparedStatement count = conn.prepareStatement("SELECT desired FROM users where name = ?;")) {
+             PreparedStatement count = conn.prepareStatement("SELECT desired FROM quotas where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
             if (! resultSet.next())
@@ -189,7 +189,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public void setCurrentBalance(String username, Natural balance) {
         try (Connection conn = getConnection();
-             PreparedStatement insert = conn.prepareStatement("UPDATE users SET balance = ? WHERE name = ?;")) {
+             PreparedStatement insert = conn.prepareStatement("UPDATE quotas SET balance = ? WHERE name = ?;")) {
             insert.setLong(1, balance.val);
             insert.setString(2, username);
             insert.execute();
@@ -202,7 +202,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public Natural getCurrentBalance(String username) {
         try (Connection conn = getConnection();
-             PreparedStatement count = conn.prepareStatement("SELECT balance FROM users where name = ?;")) {
+             PreparedStatement count = conn.prepareStatement("SELECT balance FROM quotas where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
             if (! resultSet.next())
@@ -217,7 +217,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public void setCurrentQuota(String username, Natural quota) {
         try (Connection conn = getConnection();
-             PreparedStatement insert = conn.prepareStatement("UPDATE users SET quota = ? WHERE name = ?;")) {
+             PreparedStatement insert = conn.prepareStatement("UPDATE quotas SET quota = ? WHERE name = ?;")) {
             insert.setLong(1, quota.val);
             insert.setString(2, username);
             insert.execute();
@@ -230,7 +230,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public Natural getCurrentQuota(String username) {
         try (Connection conn = getConnection();
-             PreparedStatement count = conn.prepareStatement("SELECT quota FROM users where name = ?;")) {
+             PreparedStatement count = conn.prepareStatement("SELECT quota FROM quotas where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
             if (! resultSet.next())
@@ -245,7 +245,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public void setFreeQuota(String username, Natural quota) {
         try (Connection conn = getConnection();
-             PreparedStatement insert = conn.prepareStatement("UPDATE users SET free = ? WHERE name = ?;")) {
+             PreparedStatement insert = conn.prepareStatement("UPDATE quotas SET free = ? WHERE name = ?;")) {
             insert.setLong(1, quota.val);
             insert.setString(2, username);
             insert.execute();
@@ -258,7 +258,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public Natural getFreeQuota(String username) {
         try (Connection conn = getConnection();
-             PreparedStatement count = conn.prepareStatement("SELECT free FROM users where name = ?;")) {
+             PreparedStatement count = conn.prepareStatement("SELECT free FROM quotas where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
             if (! resultSet.next())
@@ -273,7 +273,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public void setQuotaExpiry(String username, LocalDateTime expiry) {
         try (Connection conn = getConnection();
-             PreparedStatement insert = conn.prepareStatement("UPDATE users SET expiry = ? WHERE name = ?;")) {
+             PreparedStatement insert = conn.prepareStatement("UPDATE quotas SET expiry = ? WHERE name = ?;")) {
             insert.setTimestamp(1, Timestamp.from(expiry.toInstant(ZoneOffset.UTC)));
             insert.setString(2, username);
             insert.execute();
@@ -286,7 +286,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public LocalDateTime getQuotaExpiry(String username) {
         try (Connection conn = getConnection();
-             PreparedStatement count = conn.prepareStatement("SELECT expiry FROM users where name = ?;")) {
+             PreparedStatement count = conn.prepareStatement("SELECT expiry FROM quotas where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
             if (! resultSet.next())
@@ -302,7 +302,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public void setError(String username, String error) {
         try (Connection conn = getConnection();
-             PreparedStatement insert = conn.prepareStatement("UPDATE users SET error = ? WHERE name = ?;")) {
+             PreparedStatement insert = conn.prepareStatement("UPDATE quotas SET error = ? WHERE name = ?;")) {
             insert.setString(1, error);
             insert.setString(2, username);
             insert.execute();
@@ -315,7 +315,7 @@ public class SqlPaymentStore implements PaymentStore {
     @Override
     public Optional<String> getError(String username) {
         try (Connection conn = getConnection();
-             PreparedStatement count = conn.prepareStatement("SELECT error FROM users where name = ?;")) {
+             PreparedStatement count = conn.prepareStatement("SELECT error FROM quotas where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
             if (! resultSet.next())
