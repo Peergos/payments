@@ -136,7 +136,7 @@ public class Server {
                 .collect(Collectors.toSet());
 
         Supplier<Connection> database = Builder.getDBConnector(a, "payment-store-sql-file");
-        PaymentStore store = new SqlPaymentStore(database);
+        PaymentStore store = new SqlPaymentStore(database, a.getBoolean("use-postgres", false));
         Pricer pricer = Builder.buildPricer(a);
         PaymentState state = new PaymentState(store, pricer, minPayment, bank, defaultFreeQuota, maxUsers, allowedQuotas);
 

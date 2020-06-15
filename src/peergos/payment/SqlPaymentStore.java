@@ -12,27 +12,34 @@ import java.util.logging.*;
 public class SqlPaymentStore implements PaymentStore {
 
     private static final Logger LOG = Logging.LOG();
-
-    private static final String CREATE_USER_TABLE = "CREATE TABLE IF NOT EXISTS users " +
-            "(name VARCHAR(32) PRIMARY KEY NOT NULL, " +
-            "customerid text, " +
-            "free INTEGER NOT NULL CHECK (free >= 0), " +
-            "desired INTEGER NOT NULL CHECK (desired >= 0), " +
-            "quota INTEGER NOT NULL CHECK (quota >= 0), " +
-            "expiry DATETIME NOT NULL, " +
-            "error TEXT, " +
-            "balance INTEGER NOT NULL CHECK (balance >= 0));";
-
     private Supplier<Connection> conn;
+    private final boolean isPostgres;
 
-    public SqlPaymentStore(Supplier<Connection> conn) {
+    public SqlPaymentStore(Supplier<Connection> conn, boolean isPostgres) {
         this.conn = conn;
+        this.isPostgres = isPostgres;
         init();
+    }
+
+    private String sqlInteger() {
+        return isPostgres ? "BIGINT" : "INTEGER";
+    }
+
+    private String createTableStatement() {
+        return "CREATE TABLE IF NOT EXISTS users " +
+                "(name VARCHAR(32) PRIMARY KEY NOT NULL, " +
+                "customerid text, " +
+                "free "+sqlInteger()+" NOT NULL CHECK (free >= 0), " +
+                "desired "+sqlInteger()+" NOT NULL CHECK (desired >= 0), " +
+                "quota "+sqlInteger()+" NOT NULL CHECK (quota >= 0), " +
+                "expiry " + (isPostgres ? "TIMESTAMP" : "DATETIME") + " NOT NULL, " +
+                "error TEXT, " +
+                "balance INTEGER NOT NULL CHECK (balance >= 0));";
     }
 
     private synchronized void init() {
         try {
-            createTable(CREATE_USER_TABLE, conn.get());
+            createTable(createTableStatement(), conn.get());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -60,6 +67,8 @@ public class SqlPaymentStore implements PaymentStore {
         try (Connection conn = getConnection();
              PreparedStatement count = conn.prepareStatement("SELECT COUNT(*) FROM users;")) {
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                return 0;
             return resultSet.getLong(1);
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -73,6 +82,8 @@ public class SqlPaymentStore implements PaymentStore {
              PreparedStatement count = conn.prepareStatement("SELECT COUNT(*) FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                return false;
             return resultSet.getLong(1) == 1;
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -135,6 +146,8 @@ public class SqlPaymentStore implements PaymentStore {
              PreparedStatement count = conn.prepareStatement("SELECT customerid FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                throw new IllegalStateException("No such user: " + username);
             String id = resultSet.getString(1);
             if (id == null)
                 return null;
@@ -164,6 +177,8 @@ public class SqlPaymentStore implements PaymentStore {
              PreparedStatement count = conn.prepareStatement("SELECT desired FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                throw new IllegalStateException("No such user: " + username);
             return new Natural(resultSet.getLong(1));
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -190,6 +205,8 @@ public class SqlPaymentStore implements PaymentStore {
              PreparedStatement count = conn.prepareStatement("SELECT balance FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                throw new IllegalStateException("No such user: " + username);
             return new Natural(resultSet.getLong(1));
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -216,6 +233,8 @@ public class SqlPaymentStore implements PaymentStore {
              PreparedStatement count = conn.prepareStatement("SELECT quota FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                return Natural.ZERO;
             return new Natural(resultSet.getLong(1));
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -242,6 +261,8 @@ public class SqlPaymentStore implements PaymentStore {
              PreparedStatement count = conn.prepareStatement("SELECT free FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                return Natural.ZERO;
             return new Natural(resultSet.getLong(1));
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -268,6 +289,8 @@ public class SqlPaymentStore implements PaymentStore {
              PreparedStatement count = conn.prepareStatement("SELECT expiry FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                throw new IllegalStateException("No such user: " + username);
             Timestamp timestamp = resultSet.getTimestamp(1);
             return timestamp.toInstant().atZone(ZoneId.of("UTC")).toLocalDateTime();
         } catch (SQLException sqe) {
@@ -295,6 +318,8 @@ public class SqlPaymentStore implements PaymentStore {
              PreparedStatement count = conn.prepareStatement("SELECT error FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                throw new IllegalStateException("No such user: " + username);
             return Optional.ofNullable(resultSet.getString(1));
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
