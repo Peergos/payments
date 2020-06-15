@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.*;
 import java.util.logging.*;
 import java.util.stream.*;
 
@@ -134,8 +135,8 @@ public class Server {
                 .map(g -> g * Builder.GIGABYTE)
                 .collect(Collectors.toSet());
 
-        Connection sqlConn = Builder.buildSql(a.getArg("payment-store-sql-file", "payments-store.sql"));
-        PaymentStore store = new SqlPaymentStore(sqlConn);
+        Supplier<Connection> database = Builder.getDBConnector(a, "payment-store-sql-file");
+        PaymentStore store = new SqlPaymentStore(database);
         Pricer pricer = Builder.buildPricer(a);
         PaymentState state = new PaymentState(store, pricer, minPayment, bank, defaultFreeQuota, maxUsers, allowedQuotas);
 
