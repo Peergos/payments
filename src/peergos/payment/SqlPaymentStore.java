@@ -6,33 +6,52 @@ import peergos.server.util.Logging;
 import java.sql.*;
 import java.time.*;
 import java.util.*;
+import java.util.function.*;
 import java.util.logging.*;
 
 public class SqlPaymentStore implements PaymentStore {
 
     private static final Logger LOG = Logging.LOG();
+    private Supplier<Connection> conn;
+    private final boolean isPostgres;
 
-    private static final String CREATE_USER_TABLE = "CREATE TABLE IF NOT EXISTS users " +
-            "(name VARCHAR(32) PRIMARY KEY NOT NULL, " +
-            "customerid text, " +
-            "free INTEGER NOT NULL CHECK (free >= 0), " +
-            "desired INTEGER NOT NULL CHECK (desired >= 0), " +
-            "quota INTEGER NOT NULL CHECK (quota >= 0), " +
-            "expiry DATETIME NOT NULL, " +
-            "error TEXT, " +
-            "balance INTEGER NOT NULL CHECK (balance >= 0));";
-
-    private Connection conn;
-
-    public SqlPaymentStore(Connection conn) {
+    public SqlPaymentStore(Supplier<Connection> conn, boolean isPostgres) {
         this.conn = conn;
+        this.isPostgres = isPostgres;
         init();
+    }
+
+    private String sqlInteger() {
+        return isPostgres ? "BIGINT" : "INTEGER";
+    }
+
+    private String createTableStatement() {
+        return "CREATE TABLE IF NOT EXISTS users " +
+                "(name VARCHAR(32) PRIMARY KEY NOT NULL, " +
+                "customerid text, " +
+                "free "+sqlInteger()+" NOT NULL CHECK (free >= 0), " +
+                "desired "+sqlInteger()+" NOT NULL CHECK (desired >= 0), " +
+                "quota "+sqlInteger()+" NOT NULL CHECK (quota >= 0), " +
+                "expiry " + (isPostgres ? "TIMESTAMP" : "DATETIME") + " NOT NULL, " +
+                "error TEXT, " +
+                "balance INTEGER NOT NULL CHECK (balance >= 0));";
     }
 
     private synchronized void init() {
         try {
-            createTable(CREATE_USER_TABLE, conn);
+            createTable(createTableStatement(), conn.get());
         } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Connection getConnection() {
+        Connection connection = conn.get();
+        try {
+            connection.setAutoCommit(true);
+            connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            return connection;
+        } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
@@ -45,8 +64,11 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public long userCount() {
-        try (PreparedStatement count = conn.prepareStatement("SELECT COUNT(*) FROM users;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement count = conn.prepareStatement("SELECT COUNT(*) FROM users;")) {
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                return 0;
             return resultSet.getLong(1);
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -56,9 +78,12 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public boolean hasUser(String username) {
-        try (PreparedStatement count = conn.prepareStatement("SELECT COUNT(*) FROM users where name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement count = conn.prepareStatement("SELECT COUNT(*) FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                return false;
             return resultSet.getLong(1) == 1;
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -68,7 +93,8 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public List<String> getAllUsernames() {
-        try (PreparedStatement select = conn.prepareStatement("SELECT name FROM users;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement select = conn.prepareStatement("SELECT name FROM users;")) {
             ResultSet rs = select.executeQuery();
             List<String> results = new ArrayList<>();
             while (rs.next()) {
@@ -86,7 +112,8 @@ public class SqlPaymentStore implements PaymentStore {
     public void ensureUser(String username, Natural freeSpace, LocalDateTime now) {
         if (hasUser(username))
             return;
-        try (PreparedStatement insert = conn.prepareStatement("INSERT INTO users (name, free, desired, quota, expiry, balance) VALUES(?, ?, ?, ?, ?, ?);")) {
+        try (Connection conn = getConnection();
+             PreparedStatement insert = conn.prepareStatement("INSERT INTO users (name, free, desired, quota, expiry, balance) VALUES(?, ?, ?, ?, ?, ?);")) {
             insert.setString(1, username);
             insert.setLong(2, freeSpace.val);
             insert.setLong(3, 0);
@@ -102,7 +129,8 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public void setCustomer(String username, CustomerResult customer) {
-        try (PreparedStatement insert = conn.prepareStatement("UPDATE users SET customerid = ? WHERE name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement insert = conn.prepareStatement("UPDATE users SET customerid = ? WHERE name = ?;")) {
             insert.setString(1, customer.id);
             insert.setString(2, username);
             insert.execute();
@@ -114,9 +142,12 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public CustomerResult getCustomer(String username) {
-        try (PreparedStatement count = conn.prepareStatement("SELECT customerid FROM users where name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement count = conn.prepareStatement("SELECT customerid FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                throw new IllegalStateException("No such user: " + username);
             String id = resultSet.getString(1);
             if (id == null)
                 return null;
@@ -129,7 +160,8 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public void setDesiredQuota(String username, Natural quota, LocalDateTime now) {
-        try (PreparedStatement insert = conn.prepareStatement("UPDATE users SET desired = ? WHERE name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement insert = conn.prepareStatement("UPDATE users SET desired = ? WHERE name = ?;")) {
             insert.setLong(1, quota.val);
             insert.setString(2, username);
             insert.execute();
@@ -141,9 +173,12 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public Natural getDesiredQuota(String username) {
-        try (PreparedStatement count = conn.prepareStatement("SELECT desired FROM users where name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement count = conn.prepareStatement("SELECT desired FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                throw new IllegalStateException("No such user: " + username);
             return new Natural(resultSet.getLong(1));
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -153,7 +188,8 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public void setCurrentBalance(String username, Natural balance) {
-        try (PreparedStatement insert = conn.prepareStatement("UPDATE users SET balance = ? WHERE name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement insert = conn.prepareStatement("UPDATE users SET balance = ? WHERE name = ?;")) {
             insert.setLong(1, balance.val);
             insert.setString(2, username);
             insert.execute();
@@ -165,9 +201,12 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public Natural getCurrentBalance(String username) {
-        try (PreparedStatement count = conn.prepareStatement("SELECT balance FROM users where name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement count = conn.prepareStatement("SELECT balance FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                throw new IllegalStateException("No such user: " + username);
             return new Natural(resultSet.getLong(1));
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -177,7 +216,8 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public void setCurrentQuota(String username, Natural quota) {
-        try (PreparedStatement insert = conn.prepareStatement("UPDATE users SET quota = ? WHERE name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement insert = conn.prepareStatement("UPDATE users SET quota = ? WHERE name = ?;")) {
             insert.setLong(1, quota.val);
             insert.setString(2, username);
             insert.execute();
@@ -189,9 +229,12 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public Natural getCurrentQuota(String username) {
-        try (PreparedStatement count = conn.prepareStatement("SELECT quota FROM users where name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement count = conn.prepareStatement("SELECT quota FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                return Natural.ZERO;
             return new Natural(resultSet.getLong(1));
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -201,7 +244,8 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public void setFreeQuota(String username, Natural quota) {
-        try (PreparedStatement insert = conn.prepareStatement("UPDATE users SET free = ? WHERE name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement insert = conn.prepareStatement("UPDATE users SET free = ? WHERE name = ?;")) {
             insert.setLong(1, quota.val);
             insert.setString(2, username);
             insert.execute();
@@ -213,9 +257,12 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public Natural getFreeQuota(String username) {
-        try (PreparedStatement count = conn.prepareStatement("SELECT free FROM users where name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement count = conn.prepareStatement("SELECT free FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                return Natural.ZERO;
             return new Natural(resultSet.getLong(1));
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -225,7 +272,8 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public void setQuotaExpiry(String username, LocalDateTime expiry) {
-        try (PreparedStatement insert = conn.prepareStatement("UPDATE users SET expiry = ? WHERE name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement insert = conn.prepareStatement("UPDATE users SET expiry = ? WHERE name = ?;")) {
             insert.setTimestamp(1, Timestamp.from(expiry.toInstant(ZoneOffset.UTC)));
             insert.setString(2, username);
             insert.execute();
@@ -237,9 +285,12 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public LocalDateTime getQuotaExpiry(String username) {
-        try (PreparedStatement count = conn.prepareStatement("SELECT expiry FROM users where name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement count = conn.prepareStatement("SELECT expiry FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                throw new IllegalStateException("No such user: " + username);
             Timestamp timestamp = resultSet.getTimestamp(1);
             return timestamp.toInstant().atZone(ZoneId.of("UTC")).toLocalDateTime();
         } catch (SQLException sqe) {
@@ -250,7 +301,8 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public void setError(String username, String error) {
-        try (PreparedStatement insert = conn.prepareStatement("UPDATE users SET error = ? WHERE name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement insert = conn.prepareStatement("UPDATE users SET error = ? WHERE name = ?;")) {
             insert.setString(1, error);
             insert.setString(2, username);
             insert.execute();
@@ -262,9 +314,12 @@ public class SqlPaymentStore implements PaymentStore {
 
     @Override
     public Optional<String> getError(String username) {
-        try (PreparedStatement count = conn.prepareStatement("SELECT error FROM users where name = ?;")) {
+        try (Connection conn = getConnection();
+             PreparedStatement count = conn.prepareStatement("SELECT error FROM users where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                throw new IllegalStateException("No such user: " + username);
             return Optional.ofNullable(resultSet.getString(1));
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);

@@ -60,7 +60,7 @@ public class PaymentStateTests {
 
     private static PaymentState buildPaymentState(Bank bank, Pricer pricer) {
         Natural minPayment = new Natural(500);
-        return new PaymentState(new SqlPaymentStore(Builder.buildSql(":memory:")), pricer, minPayment, bank, freeQuota, 10, allowedQuotas);
+        return new PaymentState(new SqlPaymentStore(Builder.buildEphemeralSqlite(), false), pricer, minPayment, bank, freeQuota, 10, allowedQuotas);
     }
 
     private static PaymentState buildPaymentState(Bank bank) {

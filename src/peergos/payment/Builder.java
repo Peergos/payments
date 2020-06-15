@@ -1,20 +1,73 @@
 package peergos.payment;
 
+import com.zaxxer.hikari.*;
 import org.sqlite.SQLiteDataSource;
 import peergos.payment.util.Args;
 import peergos.payment.util.Natural;
+import peergos.server.util.*;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.*;
 import java.util.stream.Collectors;
 
 public class Builder {
 
     protected static final long GIGABYTE = 1024*1024*1024L;
+
+    public static Supplier<Connection> buildEphemeralSqlite() {
+        try {
+            Connection memory = Sqlite.build(":memory:");
+            // We need a connection that ignores close
+            Connection instance = new Sqlite.UncloseableConnection(memory);
+            return () -> instance;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static Supplier<Connection> getDBConnector(Args a, String dbName) {
+        boolean usePostgres = a.getBoolean("use-postgres", false);
+        HikariConfig config;
+        if (usePostgres) {
+            String postgresHost = a.getArg("postgres.host");
+            int postgresPort = a.getInt("postgres.port", 5432);
+            String databaseName = a.getArg("postgres.database", "peergos");
+            String postgresUsername = a.getArg("postgres.username");
+            String postgresPassword = a.getArg("postgres.password");
+
+            Properties props = new Properties();
+            props.setProperty("dataSourceClassName", "org.postgresql.ds.PGSimpleDataSource");
+            props.setProperty("dataSource.serverName", postgresHost);
+            props.setProperty("dataSource.portNumber", "" + postgresPort);
+            props.setProperty("dataSource.user", postgresUsername);
+            props.setProperty("dataSource.password", postgresPassword);
+            props.setProperty("dataSource.databaseName", databaseName);
+            config = new HikariConfig(props);
+            HikariDataSource ds = new HikariDataSource(config);
+
+            return () -> {
+                try {
+                    return ds.getConnection();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+        } else {
+            String sqlFilePath = a.getArg(dbName);
+            if (":memory:".equals(sqlFilePath))
+                return buildEphemeralSqlite();
+            try {
+                Connection memory = Sqlite.build(sqlFilePath);
+                // We need a connection that ignores close
+                Connection instance = new Sqlite.UncloseableConnection(memory);
+                return () -> instance;
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
 
     protected static Pricer buildPricer(Args a) {
         boolean fixedPrices = a.hasArg("quota-prices");
