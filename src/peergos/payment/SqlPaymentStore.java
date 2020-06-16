@@ -32,7 +32,7 @@ public class SqlPaymentStore implements PaymentStore {
                 "free "+sqlInteger()+" NOT NULL CHECK (free >= 0), " +
                 "desired "+sqlInteger()+" NOT NULL CHECK (desired >= 0), " +
                 "quota "+sqlInteger()+" NOT NULL CHECK (quota >= 0), " +
-                "expiry " + (isPostgres ? "TIMESTAMP" : "DATETIME") + " NOT NULL, " +
+                "expiry " + sqlInteger() + " NOT NULL, " +
                 "error TEXT, " +
                 "balance INTEGER NOT NULL CHECK (balance >= 0));";
     }
@@ -118,7 +118,7 @@ public class SqlPaymentStore implements PaymentStore {
             insert.setLong(2, freeSpace.val);
             insert.setLong(3, 0);
             insert.setLong(4, 0);
-            insert.setTimestamp(5, Timestamp.valueOf(now));
+            insert.setLong(5, now.toEpochSecond(ZoneOffset.UTC));
             insert.setLong(6, 0);
             insert.execute();
         } catch (SQLException sqe) {
@@ -274,7 +274,7 @@ public class SqlPaymentStore implements PaymentStore {
     public void setQuotaExpiry(String username, LocalDateTime expiry) {
         try (Connection conn = getConnection();
              PreparedStatement insert = conn.prepareStatement("UPDATE quotas SET expiry = ? WHERE name = ?;")) {
-            insert.setTimestamp(1, Timestamp.from(expiry.toInstant(ZoneOffset.UTC)));
+            insert.setLong(1, expiry.toEpochSecond(ZoneOffset.UTC));
             insert.setString(2, username);
             insert.execute();
         } catch (SQLException sqe) {
@@ -291,8 +291,8 @@ public class SqlPaymentStore implements PaymentStore {
             ResultSet resultSet = count.executeQuery();
             if (! resultSet.next())
                 throw new IllegalStateException("No such user: " + username);
-            Timestamp timestamp = resultSet.getTimestamp(1);
-            return timestamp.toInstant().atZone(ZoneId.of("UTC")).toLocalDateTime();
+            long epochSecondUtc = resultSet.getLong(1);
+            return LocalDateTime.ofEpochSecond(epochSecondUtc, 0, ZoneOffset.UTC);
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
             throw new RuntimeException(sqe);
