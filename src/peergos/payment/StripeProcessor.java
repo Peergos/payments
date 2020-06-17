@@ -28,8 +28,8 @@ public class StripeProcessor implements Bank {
     }
 
     @Override
-    public CustomerResult createCustomer() {
-        String rawJson = createCustomer(stripeSecretToken);
+    public CustomerResult createCustomer(String username) {
+        String rawJson = createCustomer(stripeSecretToken, username);
         Map<String, Object> res = (Map) JSONParser.parse(rawJson);
         // TODO parse more fields from res
         String id = (String) res.get("id");
@@ -56,9 +56,11 @@ public class StripeProcessor implements Bank {
         }
     }
 
-    public static String createCustomer(String stripeSecretKey) {
+    public static String createCustomer(String stripeSecretKey, String username) {
         try {
-            String res = post("https://api.stripe.com/v1/customers", stripeSecretKey, Collections.emptyMap());
+            Map<String, String> params = new HashMap<>();
+            params.put("metadata[username]", username);
+            String res = post("https://api.stripe.com/v1/customers", stripeSecretKey, params);
             System.out.println("Created customer: " + res);
             return res;
         } catch (Exception e) {

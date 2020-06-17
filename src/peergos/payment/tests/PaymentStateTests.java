@@ -34,7 +34,7 @@ public class PaymentStateTests {
         }
 
         @Override
-        public CustomerResult createCustomer() {
+        public CustomerResult createCustomer(String username) {
             String id = rndString();
             return new CustomerResult(id);
         }

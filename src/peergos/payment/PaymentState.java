@@ -66,7 +66,7 @@ public class PaymentState {
             throw new IllegalStateException("Unknown user: " + username);
         CustomerResult customer = userStates.getCustomer(username);
         if (customer == null) {
-            customer = bank.createCustomer();
+            customer = bank.createCustomer(username);
             userStates.setCustomer(username, customer);
         }
         return bank.setupIntent(customer).clientSecret;

@@ -6,7 +6,7 @@ import java.time.*;
 
 public interface Bank {
 
-    CustomerResult createCustomer();
+    CustomerResult createCustomer(String username);
 
     IntentResult setupIntent(CustomerResult cus);
 
