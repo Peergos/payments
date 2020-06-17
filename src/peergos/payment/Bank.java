@@ -10,5 +10,5 @@ public interface Bank {
 
     IntentResult setupIntent(CustomerResult cus);
 
-    PaymentResult takePayment(CustomerResult cus, Natural cents, String currency, LocalDateTime now);
+    PaymentResult takePayment(CustomerResult cus, Natural cents, String currency, LocalDateTime now, Natural forQuota);
 }

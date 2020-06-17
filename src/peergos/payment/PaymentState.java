@@ -108,11 +108,12 @@ public class PaymentState {
                 Natural toCharge = minPaymentCents.max(remaining);
                 try {
                     CustomerResult customer = userStates.getCustomer(username);
-                    PaymentResult paymentResult = bank.takePayment(customer, toCharge, "gbp", now);
+                    PaymentResult paymentResult = bank.takePayment(customer, toCharge, "gbp", now, desiredQuotaBytes);
                     if (paymentResult.isSuccessful()) {
                         userStates.setCurrentBalance(username, toCharge.minus(remaining));
                         userStates.setCurrentQuota(username, desiredQuotaBytes);
                         userStates.setQuotaExpiry(username, now.plusMonths(1));
+                        userStates.setError(username, null);
                     } else {
                         userStates.setError(username, paymentResult.failureError.get());
                         processed = false;

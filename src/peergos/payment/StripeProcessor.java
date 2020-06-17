@@ -37,7 +37,11 @@ public class StripeProcessor implements Bank {
     }
 
     @Override
-    public PaymentResult takePayment(CustomerResult cus, Natural cents, String currency, LocalDateTime now) {
+    public PaymentResult takePayment(CustomerResult cus,
+                                     Natural cents,
+                                     String currency,
+                                     LocalDateTime now,
+                                     Natural forQuota) {
         List<PaymentMethod> paymentMethods = listPaymentMethods(cus, stripeSecretToken);
         if (paymentMethods.isEmpty())
             throw new IllegalStateException("No card registered for user!");
@@ -45,7 +49,7 @@ public class StripeProcessor implements Bank {
         // use the payment method most recently created
         PaymentMethod card = paymentMethods.get(0);
         try {
-            Map<String, Object> res = (Map) JSONParser.parse(takePayment(cents, currency, cus, card, stripeSecretToken));
+            Map<String, Object> res = (Map) JSONParser.parse(takePayment(cents, currency, cus, card, stripeSecretToken, forQuota));
             boolean success = "succeeded".equals(res.get("status"));
             Optional<String> errMessage = Optional.ofNullable(res.get("failure_message")).map(x -> (String) x);
             // TODO parse more fields from res
@@ -104,7 +108,8 @@ public class StripeProcessor implements Bank {
                                      String currency,
                                      CustomerResult cus,
                                      PaymentMethod method,
-                                     String stripeSecretKey) throws IOException {
+                                     String stripeSecretKey,
+                                     Natural forQuota) throws IOException {
         Map<String, String> params = new HashMap<>();
         params.put("amount", Long.toString(cents.val));
         params.put("currency", currency);
@@ -112,6 +117,7 @@ public class StripeProcessor implements Bank {
         params.put("payment_method", method.id);
         params.put("off_session", "true");
         params.put("confirm", "true");
+        params.put("metadata[desired_quota]", Long.toString(forQuota.val));
         String res = post("https://api.stripe.com/v1/payment_intents", stripeSecretKey, params);
         System.out.println("Took payment: " + res);
         return res;

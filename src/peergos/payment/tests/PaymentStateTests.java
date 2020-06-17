@@ -45,7 +45,11 @@ public class PaymentStateTests {
         }
 
         @Override
-        public PaymentResult takePayment(CustomerResult cus, Natural cents, String currency, LocalDateTime now) {
+        public PaymentResult takePayment(CustomerResult cus,
+                                         Natural cents,
+                                         String currency,
+                                         LocalDateTime now,
+                                         Natural forQuota) {
             PaymentResult res;
             if (failuresLeft > 0) {
                 res = new PaymentResult(cents, currency, now, Optional.of(errorMessage));
