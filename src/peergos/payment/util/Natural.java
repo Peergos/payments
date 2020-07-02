@@ -2,7 +2,7 @@ package peergos.payment.util;
 
 import java.util.Objects;
 
-public class Natural {
+public class Natural implements Comparable<Natural> {
 
     public static final Natural ZERO = new Natural(0);
 
@@ -40,6 +40,11 @@ public class Natural {
 
     public static Natural of(long val) {
         return new Natural(val);
+    }
+
+    @Override
+    public int compareTo(Natural y) {
+        return Long.compare(val, y.val);
     }
 
     @Override

@@ -31,6 +31,7 @@ public class SqlPaymentStore implements PaymentStore {
                 "customerid text, " +
                 "free "+sqlInteger()+" NOT NULL CHECK (free >= 0), " +
                 "desired "+sqlInteger()+" NOT NULL CHECK (desired >= 0), " +
+                "currentprice "+sqlInteger()+" NOT NULL CHECK (currentprice >= 0), " +
                 "quota "+sqlInteger()+" NOT NULL CHECK (quota >= 0), " +
                 "expiry " + sqlInteger() + " NOT NULL, " +
                 "error TEXT, " +
@@ -113,13 +114,14 @@ public class SqlPaymentStore implements PaymentStore {
         if (hasUser(username))
             return;
         try (Connection conn = getConnection();
-             PreparedStatement insert = conn.prepareStatement("INSERT INTO quotas (name, free, desired, quota, expiry, balance) VALUES(?, ?, ?, ?, ?, ?);")) {
+             PreparedStatement insert = conn.prepareStatement("INSERT INTO quotas (name, free, desired, currentprice, quota, expiry, balance) VALUES(?, ?, ?, ?, ?, ?, ?);")) {
             insert.setString(1, username);
             insert.setLong(2, freeSpace.val);
             insert.setLong(3, 0);
             insert.setLong(4, 0);
-            insert.setLong(5, now.toEpochSecond(ZoneOffset.UTC));
-            insert.setLong(6, 0);
+            insert.setLong(5, 0);
+            insert.setLong(6, now.toEpochSecond(ZoneOffset.UTC));
+            insert.setLong(7, 0);
             insert.execute();
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
@@ -203,6 +205,34 @@ public class SqlPaymentStore implements PaymentStore {
     public Natural getCurrentBalance(String username) {
         try (Connection conn = getConnection();
              PreparedStatement count = conn.prepareStatement("SELECT balance FROM quotas where name = ?;")) {
+            count.setString(1, username);
+            ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                throw new IllegalStateException("No such user: " + username);
+            return new Natural(resultSet.getLong(1));
+        } catch (SQLException sqe) {
+            LOG.log(Level.WARNING, sqe.getMessage(), sqe);
+            throw new RuntimeException(sqe);
+        }
+    }
+
+    @Override
+    public void setCurrentPrice(String username, Natural price) {
+        try (Connection conn = getConnection();
+             PreparedStatement insert = conn.prepareStatement("UPDATE quotas SET currentprice = ? WHERE name = ?;")) {
+            insert.setLong(1, price.val);
+            insert.setString(2, username);
+            insert.execute();
+        } catch (SQLException sqe) {
+            LOG.log(Level.WARNING, sqe.getMessage(), sqe);
+            throw new RuntimeException(sqe);
+        }
+    }
+
+    @Override
+    public Natural getCurrentPrice(String username) {
+        try (Connection conn = getConnection();
+             PreparedStatement count = conn.prepareStatement("SELECT currentprice FROM quotas where name = ?;")) {
             count.setString(1, username);
             ResultSet resultSet = count.executeQuery();
             if (! resultSet.next())

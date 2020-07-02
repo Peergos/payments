@@ -24,6 +24,9 @@ public interface PaymentStore {
     void setCurrentBalance(String username, Natural balance);
     Natural getCurrentBalance(String username);
 
+    void setCurrentPrice(String username, Natural balance);
+    Natural getCurrentPrice(String username);
+
     void setCurrentQuota(String username, Natural quota);
     Natural getCurrentQuota(String username);
 

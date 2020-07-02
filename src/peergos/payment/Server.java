@@ -130,9 +130,10 @@ public class Server {
         Natural minPayment = new Natural(a.getLong("min-payment", 500));
         Natural defaultFreeQuota = new Natural(a.getLong("free-quota", 100 * 1024*1024L));
         int maxUsers = a.getInt("max-users");
-        Set<Long> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
+        Set<Natural> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
                 .map(Long::parseLong)
                 .map(g -> g * Builder.GIGABYTE)
+                .map(Natural::of)
                 .collect(Collectors.toSet());
 
         Supplier<Connection> database = Builder.getDBConnector(a, "payment-store-sql-file");

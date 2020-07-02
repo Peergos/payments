@@ -11,8 +11,11 @@ import java.util.stream.*;
 public class PaymentStateTests {
 
     private static final long GIGABYTE = 1024*1024*1024L;
+    private static final long POUND = 100;
     private static final Natural freeQuota = new Natural(100 * 1024 * 1204);
-    private static final Set<Long> allowedQuotas = Stream.of(0L, 5*GIGABYTE, 7*GIGABYTE, 10*GIGABYTE).collect(Collectors.toSet());
+    private static final Set<Natural> allowedQuotas = Stream.of(0L, 5*GIGABYTE, 7*GIGABYTE, 10*GIGABYTE)
+            .map(Natural::of)
+            .collect(Collectors.toSet());
 
     private static class AcceptAll implements Bank {
         private final Random r = new Random(0);
@@ -193,6 +196,42 @@ public class PaymentStateTests {
         Assert.assertTrue("First payment is for 5GiB", payments.get(0).amount.equals(pricer.convertBytesToCents(desiredQuota)));
         Assert.assertTrue("Second payment is for 5GiB",
                 payments.get(1).amount.equals(pricer.convertBytesToCents(increasedQuota.minus(desiredQuota))));
+    }
+
+    @Test
+    public void maintainExistingPricingAgreements() {
+        Natural tenPounds = Natural.of(10 * POUND);
+        Natural twentyPounds = Natural.of(20 * POUND);
+        AcceptAll bank = new AcceptAll();
+        SqlPaymentStore paymentState = new SqlPaymentStore(Builder.buildEphemeralSqlite(), false);
+        String username = "bob";
+        SortedMap<Natural, Natural> bytesToCents = new TreeMap<>();
+        bytesToCents.put(Natural.ZERO, Natural.ZERO);
+        bytesToCents.put(Natural.of(10 * GIGABYTE), tenPounds);
+        bytesToCents.put(Natural.of(50 * GIGABYTE), Natural.of(30 * POUND));
+        {
+            FixedPricer pricer = new FixedPricer(bytesToCents);
+            PaymentState global = new PaymentState(paymentState,
+                    pricer, Natural.of(5 * POUND), bank, Natural.ZERO, 10, bytesToCents.keySet());
+            Natural desiredQuota = new Natural(10 * GIGABYTE);
+            LocalDateTime now = LocalDateTime.now();
+            global.ensureUser(username, now);
+            global.setDesiredQuota(username, desiredQuota, now);
+            long quota = global.getCurrentQuota(username);
+            global.processAll(now);
+            Assert.assertTrue("Correct quota", quota == desiredQuota.val);
+        }
+
+        // Now lets simulate changing our pricing (for new users) but existing users should maintain old pricing
+        bytesToCents.put(Natural.of(10 * GIGABYTE), twentyPounds);
+        FixedPricer pricer = new FixedPricer(bytesToCents);
+        PaymentState global = new PaymentState(paymentState,
+                pricer, Natural.of(5 * POUND), bank, Natural.ZERO, 10, bytesToCents.keySet());
+        global.processAll(LocalDateTime.now().plusMonths(1));
+        List<PaymentResult> payments = bank.getPayments();
+        Assert.assertTrue("Correct number of payments ", payments.size() == 2);
+        Assert.assertTrue("First payment is for 10 pounds", payments.get(0).amount.equals(tenPounds));
+        Assert.assertTrue("Second payment is same", payments.get(1).amount.equals(tenPounds));
     }
 
     @Test
