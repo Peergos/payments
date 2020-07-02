@@ -18,7 +18,7 @@ public class PaymentState {
     private final Bank bank;
     private final Natural defaultFreeQuota;
     private final int maxUsers;
-    private final Set<Long> allowedQuotas;
+    private final Set<Natural> allowedQuotas;
 
     public PaymentState(PaymentStore userStates,
                         Pricer pricer,
@@ -26,7 +26,7 @@ public class PaymentState {
                         Bank bank,
                         Natural defaultFreeQuota,
                         int maxUsers,
-                        Set<Long> allowedQuotas) {
+                        Set<Natural> allowedQuotas) {
         this.userStates = userStates;
         this.pricer = pricer;
         this.minPaymentCents = minPaymentCents;
@@ -90,8 +90,11 @@ public class PaymentState {
             userStates.setCurrentQuota(username, Natural.ZERO);
 
         Natural currentQuotaBytes = userStates.getCurrentQuota(username);
+        Natural currentPrice = userStates.getCurrentPrice(username);
         if (currentQuotaBytes.val < desiredQuotaBytes.val) {
-            Natural toPay = pricer.convertBytesToCents(desiredQuotaBytes.minus(currentQuotaBytes));
+            Natural toPay = currentQuotaBytes.val == 0 ?
+                    currentPrice :
+                    pricer.convertBytesToCents(desiredQuotaBytes).minus(currentPrice);
             // use any existing balance first
             Natural currentBalanceCents = userStates.getCurrentBalance(username);
             if (currentBalanceCents.val > 0) {
@@ -102,36 +105,35 @@ public class PaymentState {
                     return true;
                 }
             }
-            if (currentQuotaBytes.val < desiredQuotaBytes.val) {
-                // take a payment
-                Natural remaining = pricer.priceDifferenceInCents(currentQuotaBytes, desiredQuotaBytes);
-                Natural toCharge = minPaymentCents.max(remaining);
-                try {
-                    CustomerResult customer = userStates.getCustomer(username);
-                    PaymentResult paymentResult = bank.takePayment(customer, toCharge, "gbp", now, desiredQuotaBytes);
-                    if (paymentResult.isSuccessful()) {
-                        userStates.setCurrentBalance(username, toCharge.minus(remaining));
-                        userStates.setCurrentQuota(username, desiredQuotaBytes);
-                        userStates.setQuotaExpiry(username, now.plusMonths(1));
-                        userStates.setError(username, null);
-                    } else {
-                        userStates.setError(username, paymentResult.failureError.get());
-                        processed = false;
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+            // take a payment
+            Natural remaining = toPay;
+            Natural toCharge = minPaymentCents.max(remaining);
+            try {
+                CustomerResult customer = userStates.getCustomer(username);
+                PaymentResult paymentResult = bank.takePayment(customer, toCharge, "gbp", now, desiredQuotaBytes);
+                if (paymentResult.isSuccessful()) {
+                    userStates.setCurrentBalance(username, toCharge.minus(remaining));
+                    userStates.setCurrentQuota(username, desiredQuotaBytes);
+                    userStates.setQuotaExpiry(username, now.plusMonths(1));
+                    userStates.setError(username, null);
+                } else {
+                    userStates.setError(username, paymentResult.failureError.get());
                     processed = false;
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
+                processed = false;
             }
         }
         return processed;
     }
 
     public synchronized void setDesiredQuota(String username, Natural quota, LocalDateTime now) {
-        if (! allowedQuotas.contains(quota.val))
+        if (! allowedQuotas.contains(quota))
             throw new IllegalStateException("Invalid quota requested: " + quota.val);
         userStates.ensureUser(username, defaultFreeQuota, now);
         userStates.setDesiredQuota(username, quota, now);
+        userStates.setCurrentPrice(username, pricer.convertBytesToCents(quota));
         processUser(username, now);
     }
 
