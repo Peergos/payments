@@ -141,7 +141,7 @@ public class Server {
         Pricer pricer = Builder.buildPricer(a);
         PaymentState state = new PaymentState(store, pricer, minPayment, bank, defaultFreeQuota, maxUsers, allowedQuotas);
 
-        JavaPoster poster = new JavaPoster(new URL("http://" + a.getArg("peergos-address")));
+        JavaPoster poster = new JavaPoster(new URL("http://" + a.getArg("peergos-address")), true);
         ContentAddressedStorage.HTTP dht = new ContentAddressedStorage.HTTP(poster, true);
         HTTPCoreNode core = new HTTPCoreNode(poster);
         Server daemon = new Server(state, dht, core);
