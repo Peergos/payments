@@ -35,7 +35,8 @@ public class SqlPaymentStore implements PaymentStore {
                 "quota "+sqlInteger()+" NOT NULL CHECK (quota >= 0), " +
                 "expiry " + sqlInteger() + " NOT NULL, " +
                 "error TEXT, " +
-                "balance INTEGER NOT NULL CHECK (balance >= 0));";
+                "balance INTEGER NOT NULL CHECK (balance >= 0));" +
+                "CREATE TABLE IF NOT EXISTS signuptokens (token varchar(64) primary key not null);";
     }
 
     private synchronized void init() {
@@ -86,6 +87,47 @@ public class SqlPaymentStore implements PaymentStore {
             if (! resultSet.next())
                 return false;
             return resultSet.getLong(1) == 1;
+        } catch (SQLException sqe) {
+            LOG.log(Level.WARNING, sqe.getMessage(), sqe);
+            throw new RuntimeException(sqe);
+        }
+    }
+
+    @Override
+    public boolean addToken(String token) {
+        try (Connection conn = getConnection();
+             PreparedStatement insert = conn.prepareStatement("INSERT INTO signuptokens (token) VALUES(?);")) {
+            insert.setString(1, token);
+            insert.execute();
+            return true;
+        } catch (SQLException sqe) {
+            LOG.log(Level.WARNING, sqe.getMessage(), sqe);
+            throw new RuntimeException(sqe);
+        }
+    }
+
+    @Override
+    public boolean hasToken(String token) {
+        try (Connection conn = getConnection();
+             PreparedStatement count = conn.prepareStatement("SELECT COUNT(*) FROM signuptokens where token = ?;")) {
+            count.setString(1, token);
+            ResultSet resultSet = count.executeQuery();
+            if (! resultSet.next())
+                return false;
+            return resultSet.getLong(1) == 1;
+        } catch (SQLException sqe) {
+            LOG.log(Level.WARNING, sqe.getMessage(), sqe);
+            throw new RuntimeException(sqe);
+        }
+    }
+
+    @Override
+    public boolean removeToken(String token) {
+        try (Connection conn = getConnection();
+             PreparedStatement insert = conn.prepareStatement("DELETE FROM signuptokens WHERE token=?;")) {
+            insert.setString(1, token);
+            insert.execute();
+            return true;
         } catch (SQLException sqe) {
             LOG.log(Level.WARNING, sqe.getMessage(), sqe);
             throw new RuntimeException(sqe);

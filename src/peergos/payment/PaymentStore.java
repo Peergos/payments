@@ -13,6 +13,12 @@ public interface PaymentStore {
 
     List<String> getAllUsernames();
 
+    boolean addToken(String token);
+
+    boolean hasToken(String token);
+
+    boolean removeToken(String token);
+
     void ensureUser(String username, Natural freeSpace, LocalDateTime now);
 
     void setCustomer(String username, CustomerResult customer);

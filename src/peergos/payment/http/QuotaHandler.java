@@ -60,7 +60,20 @@ public class QuotaHandler  implements HttpHandler {
                     break;
                 case "allowed": {
                     String username = last.apply("username");
-                    result = new CborObject.CborBoolean(state.hasUser(username) || state.acceptingSignups());
+                    String token = last.apply("token");
+                    boolean allowed = state.hasUser(username) || state.acceptingSignups() || state.hasToken(token);
+                    result = new CborObject.CborBoolean(allowed);
+                    break;
+                }
+                case "token-add": {
+                    String token = last.apply("token");
+                    result = new CborObject.CborBoolean(state.addToken(token));
+                    break;
+                }
+                case "token-remove": {
+                    String username = last.apply("username");
+                    String token = last.apply("token");
+                    result = new CborObject.CborBoolean(state.removeToken(username, token));
                     break;
                 }
                 case "quota-by-name": {
