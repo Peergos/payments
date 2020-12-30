@@ -40,6 +40,22 @@ public class PaymentState {
         return userCount() < maxUsers;
     }
 
+    public boolean addToken(String token) {
+        return userStates.addToken(token);
+    }
+
+    public boolean hasToken(String token) {
+        return userStates.hasToken(token);
+    }
+
+    public boolean removeToken(String username, String token) {
+        if (userStates.removeToken(token)) {
+            ensureUser(username, LocalDateTime.now());
+            return true;
+        }
+        return false;
+    }
+
     public List<String> getAllUsernames() {
         return userStates.getAllUsernames();
     }
