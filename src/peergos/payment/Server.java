@@ -138,6 +138,22 @@ public class Server {
 
         Supplier<Connection> database = Builder.getDBConnector(a, "payment-store-sql-file");
         PaymentStore store = new SqlPaymentStore(database, a.getBoolean("use-postgres", false));
+        if (a.hasArg("update-quotas")) {
+            // load free quotas from file (the output of java Peergos.jar quota show
+            String filepath = a.getArg("update-quotas");
+            List<String> lines = Files.readAllLines(Paths.get(filepath));
+            for (String line : lines) {
+                String[] split = line.split(" ");
+                String username = split[0];
+                String quota = split[1].trim();
+                long quotaBytes = Long.parseLong(quota);
+                if (line.endsWith(" MiB"))
+                    quotaBytes *= 1024*1024;
+                if (line.endsWith(" GiB"))
+                    quotaBytes *= 1024L*1024*1024;
+                store.setFreeQuota(username, Natural.of(quotaBytes));
+            }
+        }
         Pricer pricer = Builder.buildPricer(a);
         PaymentState state = new PaymentState(store, pricer, minPayment, bank, defaultFreeQuota, maxUsers, allowedQuotas);
 
