@@ -151,7 +151,7 @@ public class Server {
                     quotaBytes *= 1024*1024;
                 if (line.endsWith(" GiB"))
                     quotaBytes *= 1024L*1024*1024;
-                store.setFreeQuota(username, Natural.of(quotaBytes));
+                store.ensureUser(username, Natural.of(quotaBytes), LocalDateTime.now());
             }
         }
         Pricer pricer = Builder.buildPricer(a);
