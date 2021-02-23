@@ -71,7 +71,7 @@ public class Builder {
 
     protected static Pricer buildPricer(Args a) {
         boolean fixedPrices = a.hasArg("quota-prices");
-        if (a.hasArg("allowed-quotas"))
+        if (!fixedPrices && a.hasArg("allowed-quotas"))
             throw new IllegalStateException("Allowed quotas are listed, but not prices! (quota-prices arg)");
         if (! fixedPrices)
             return new LinearPricer(new Natural(1024 * 1024 * 1024L / 50));
