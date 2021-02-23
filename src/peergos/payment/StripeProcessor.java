@@ -49,6 +49,10 @@ public class StripeProcessor implements Bank {
         // use the payment method most recently created
         PaymentMethod card = paymentMethods.get(0);
         try {
+            // update customer email
+            updateCustomer(stripeSecretToken, cus.id, card.email);
+
+            // take payment
             Map<String, Object> res = (Map) JSONParser.parse(takePayment(cents, currency, cus, card, stripeSecretToken, forQuota));
             boolean success = "succeeded".equals(res.get("status"));
             Optional<String> errMessage = Optional.ofNullable(res.get("failure_message")).map(x -> (String) x);
@@ -65,6 +69,19 @@ public class StripeProcessor implements Bank {
             Map<String, String> params = new HashMap<>();
             params.put("metadata[username]", username);
             String res = post("https://api.stripe.com/v1/customers", stripeSecretKey, params);
+            System.out.println("Created customer: " + res);
+            return res;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static String updateCustomer(String stripeSecretKey, String customerId, String email) {
+        try {
+            Map<String, String> params = new HashMap<>();
+            params.put("email", email);
+            String res = post("https://api.stripe.com/v1/customers/" + customerId, stripeSecretKey, params);
             System.out.println("Created customer: " + res);
             return res;
         } catch (Exception e) {
@@ -96,7 +113,10 @@ public class StripeProcessor implements Bank {
             Map<String, Object> json = (Map) JSONParser.parse(res);
             List<Object> methods = (List)json.get("data");
             return methods.stream()
-                    .map(j -> new PaymentMethod((String)((Map)j).get("id"), (Integer)((Map)j).get("created")))
+                    .map(j -> new PaymentMethod(
+                            (String)((Map)j).get("id"),
+                            (String)((Map)((Map)j).get("billing_details")).get("email"),
+                            (Integer)((Map)j).get("created")))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             e.printStackTrace();
