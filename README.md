@@ -8,7 +8,7 @@ To run use
 To run during testing use
 > java -jar PaymentServer.jar -webroot assets -webcache false -peergos-address localhost:8000 -max-users 10 -stripe-secret $secret -stripe-public pk_test_hqdmsGnYDJ3haZzsg0lrUDAA
 or for postgres
-> java -jar PaymentServer.jar -peergos-address localhost:8000 -max-users 10 -stripe-secret $secret -stripe-public pk_test_hqdmsGnYDJ3haZzsg0lrUDAA -use-postgres true -postgres.host localhost -postgres.database peergostest -postgres.username testuser -postgres.password testpassword
+> java -jar PaymentServer.jar -peergos-address localhost:8000 -max-users 10 -stripe-secret $secret -stripe-public pk_test_hqdmsGnYDJ3haZzsg0lrUDAA -use-postgres true -postgres.host localhost -postgres.database peergostest -postgres.username testuser -postgres.password testpassword -allowed-quotas 0,50 -quota-prices 0,5
 
 There are test card numbers here:
 
