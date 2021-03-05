@@ -281,7 +281,7 @@ public class PaymentStateTests {
         Assert.assertTrue("Quota decreased", newQuota == decreasedQuota.val + freeQuota.val);
         List<PaymentResult> payments = bank.getPayments();
         Assert.assertTrue("Correct number of payments ", payments.size() == 1);
-        Assert.assertTrue("First payment is for 10GiB", payments.get(0).amount.equals(pricer.convertBytesToCents(desiredQuota)));
+        Assert.assertTrue("First payment is correct", payments.get(0).amount.equals(pricer.convertBytesToCents(desiredQuota)));
     }
 
     private static final String example_payment_response = "{\n" +
