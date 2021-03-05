@@ -70,6 +70,22 @@ public class Builder {
         }
     }
 
+    private static long parseQuota(String in) {
+        in = in.trim();
+        if (in.endsWith("g"))
+            return Long.parseLong(in.substring(0, in.length() - 1)) * Builder.GIGABYTE;
+        if (in.endsWith("m"))
+            return Long.parseLong(in.substring(0, in.length() - 1)) * Builder.MEGABYTE;
+        return Long.parseLong(in);
+    }
+
+    public static List<Natural> parseQuotas(Args a) {
+        return Arrays.stream(a.getArg("allowed-quotas", "0,1m,50g").split(","))
+                .map(Builder::parseQuota)
+                .map(Natural::of)
+                .collect(Collectors.toList());
+    }
+
     protected static Pricer buildPricer(Args a) {
         boolean fixedPrices = a.hasArg("quota-prices");
         if (!fixedPrices && a.hasArg("allowed-quotas"))
@@ -77,11 +93,7 @@ public class Builder {
         if (! fixedPrices)
             return new LinearPricer(new Natural(1024 * 1024 * 1024L / 50));
 
-        List<Natural> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
-                .map(Long::parseLong)
-                .map(g -> g * GIGABYTE)
-                .map(Natural::new)
-                .collect(Collectors.toList());
+        List<Natural> allowedQuotas = parseQuotas(a);
 
         List<Natural> prices = Arrays.stream(a.getArg("quota-prices", "0,500,5000").split(","))
                 .map(Long::parseLong)
