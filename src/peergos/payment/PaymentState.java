@@ -123,6 +123,11 @@ public class PaymentState {
             }
             // take a payment
             Natural remaining = toPay;
+            if (remaining.val == 0 && desiredQuotaBytes.val <= 1024*1024) {
+                userStates.setCurrentQuota(username, desiredQuotaBytes);
+                userStates.setQuotaExpiry(username, now.plusMonths(1));
+                return true;
+            }
             Natural toCharge = minPaymentCents.max(remaining);
             try {
                 CustomerResult customer = userStates.getCustomer(username);
