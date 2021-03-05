@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 public class Builder {
 
     protected static final long GIGABYTE = 1024*1024*1024L;
+    protected static final long MEGABYTE = 1024*1024L;
 
     public static Supplier<Connection> buildEphemeralSqlite() {
         try {
