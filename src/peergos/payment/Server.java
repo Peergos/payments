@@ -120,6 +120,15 @@ public class Server {
         process.start();
     }
 
+    private static long parseQuota(String in) {
+        in = in.trim();
+        if (in.endsWith("g"))
+            return Long.parseLong(in.substring(0, in.length() - 1)) * Builder.GIGABYTE;
+        if (in.endsWith("m"))
+            return Long.parseLong(in.substring(0, in.length() - 1)) * Builder.MEGABYTE;
+        return Long.parseLong(in);
+    }
+
     public static void main(String[] args) throws Exception {
         Main.initCrypto();
         Args a = Args.parse(args);
@@ -130,9 +139,8 @@ public class Server {
         Natural minPayment = new Natural(a.getLong("min-payment", 500));
         Natural defaultFreeQuota = new Natural(a.getLong("free-quota", 100 * 1024*1024L));
         int maxUsers = a.getInt("max-users");
-        Set<Natural> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,10,100").split(","))
-                .map(Long::parseLong)
-                .map(g -> g * Builder.GIGABYTE)
+        Set<Natural> allowedQuotas = Arrays.stream(a.getArg("allowed-quotas", "0,1m,50g").split(","))
+                .map(Server::parseQuota)
                 .map(Natural::of)
                 .collect(Collectors.toSet());
 

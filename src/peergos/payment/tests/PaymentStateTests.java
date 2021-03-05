@@ -10,10 +10,11 @@ import java.util.stream.*;
 
 public class PaymentStateTests {
 
+    private static final long MEGABYTE = 1024*1024L;
     private static final long GIGABYTE = 1024*1024*1024L;
     private static final long POUND = 100;
-    private static final Natural freeQuota = new Natural(100 * 1024 * 1204);
-    private static final Set<Natural> allowedQuotas = Stream.of(0L, 5*GIGABYTE, 7*GIGABYTE, 10*GIGABYTE)
+    private static final Natural freeQuota = new Natural(200 * 1024 * 1024);
+    private static final Set<Natural> allowedQuotas = Stream.of(0L, 1*MEGABYTE, 5*GIGABYTE, 7*GIGABYTE, 10*GIGABYTE, 50*GIGABYTE)
             .map(Natural::of)
             .collect(Collectors.toSet());
 
@@ -257,6 +258,30 @@ public class PaymentStateTests {
         Assert.assertTrue("First payment is for 10GiB", payments.get(0).amount.equals(pricer.convertBytesToCents(desiredQuota)));
         Assert.assertTrue("Second payment is for 7GiB", payments.get(1).amount.equals(pricer.convertBytesToCents(decreasedQuota)));
 
+    }
+
+    @Test
+    public void deletedAccountIsNotChargedFurther() {
+        Natural bytesPerCent = new Natural(GIGABYTE / 10);
+        LinearPricer pricer = new LinearPricer(bytesPerCent);
+        AcceptAll bank = new AcceptAll();
+        PaymentState global = buildPaymentState(bank, pricer);
+        String username = "bob";
+        Natural desiredQuota = new Natural(50 * GIGABYTE);
+        LocalDateTime now = LocalDateTime.now();
+        global.ensureUser(username, now);
+        global.setDesiredQuota(username, desiredQuota, now);
+        long quota = global.getCurrentQuota(username);
+        Assert.assertTrue("Correct quota", quota == desiredQuota.val + freeQuota.val);
+        // simulate deleting account which sets quota to 1 MiB
+        Natural decreasedQuota = new Natural(1 * MEGABYTE);
+        global.setDesiredQuota(username, decreasedQuota, now);
+        global.processAll(now.plusMonths(1));
+        long newQuota = global.getCurrentQuota(username);
+        Assert.assertTrue("Quota decreased", newQuota == decreasedQuota.val + freeQuota.val);
+        List<PaymentResult> payments = bank.getPayments();
+        Assert.assertTrue("Correct number of payments ", payments.size() == 1);
+        Assert.assertTrue("First payment is correct", payments.get(0).amount.equals(pricer.convertBytesToCents(desiredQuota)));
     }
 
     private static final String example_payment_response = "{\n" +
